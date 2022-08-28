@@ -4,7 +4,20 @@ use crate::space::DistFn;
 
 /// A reference to a `Point` and its distance to some other `Point`
 #[derive(PartialEq, Debug)]
-pub(crate) struct PointDist<'a, Point>(pub &'a Point, pub f64);
+pub(crate) struct PointDist<'a, Point>(&'a Point, f64);
+
+#[allow(unused)]
+impl<'a, Point> PointDist<'a, Point> {
+    /// The point refenrence
+    pub fn coord(&self) -> &Point {
+        &self.0
+    }
+    
+    /// The distance to some other `Point`
+    pub fn dist(&self) -> f64 {
+        self.1
+    }
+}
 
 /// The two nearest neighbors when they exist
 #[derive(PartialEq, Debug)]
