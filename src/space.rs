@@ -1,20 +1,13 @@
 /// A function that compute a distance between two `Point`
 pub type DistFn<Point> = fn(p1: &Point, p2: &Point) -> f64;
 
-/// A reference to a `Point` and its distance to some other `Point`
-#[derive(PartialEq, Debug)]
-pub(crate) struct PointDist<'a, Point>(pub &'a Point, pub f64);
-
 /// A function that compute the center of two `Point`
 pub type CombineFn<Point> = fn(p1: &Point, w1:f64, p2: &Point, w2:f64) -> Point;
 
-/// A reference to a `Point` and its weight
-#[derive(PartialEq, Debug)]
-pub(crate) struct PointWeight<'a, Point>(pub &'a Point, pub f64);
-
+/// A point in real space
 pub type RealPoint = Vec<f64>;
 
-/// Euclidian distance
+/// Conputes Euclidian distance
 pub fn euclid_dist(p1: &RealPoint, p2: &RealPoint) -> f64 {
     p1.iter()
         .zip(p2)
@@ -25,6 +18,7 @@ pub fn euclid_dist(p1: &RealPoint, p2: &RealPoint) -> f64 {
         .sum()
 }
 
+/// Computes real weighted center
 pub fn real_combine(p1: &RealPoint, w1: f64, p2: &RealPoint, w2: f64) -> RealPoint {
     let w = w1+w2;
     p1.iter().zip(p2).map(|(x1, x2)| (x1*w1 + x2*w2)/w).collect()

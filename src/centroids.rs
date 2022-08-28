@@ -1,6 +1,10 @@
 use std::mem::swap;
 
-use crate::space::{DistFn, PointDist};
+use crate::space::DistFn;
+
+/// A reference to a `Point` and its distance to some other `Point`
+#[derive(PartialEq, Debug)]
+pub(crate) struct PointDist<'a, Point>(pub &'a Point, pub f64);
 
 /// The two nearest neighbors when they exist
 #[derive(PartialEq, Debug)]
@@ -22,7 +26,10 @@ pub(crate) trait GetNeighbors<'a, Point> {
 }
 
 /// Implementation of two nearest neighbors getter for a `Vec<Point>` that represents a set of centroids.
-impl<'a, Iter, Point: 'a> GetNeighbors<'a, Point> for Iter where Iter: Iterator<Item=&'a Point> {
+impl<'a, Iter, Point: 'a> GetNeighbors<'a, Point> for Iter
+where
+    Iter: Iterator<Item = &'a Point>,
+{
     fn get_neighbors(&mut self, point: &'a Point, dist: DistFn<Point>) -> Neighborhood<'a, Point> {
         let iter = self.map(|p| PointDist(p, dist(&point, p)));
         fold_0(iter)
