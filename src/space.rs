@@ -12,7 +12,7 @@ pub type CombineFn<Point> = fn(p1: &Point, w1:f64, p2: &Point, w2:f64) -> Point;
 #[derive(PartialEq, Debug)]
 pub(crate) struct PointWeight<'a, Point>(pub &'a Point, pub f64);
 
-type RealPoint = Vec<f64>;
+pub type RealPoint = Vec<f64>;
 
 /// Euclidian distance
 pub fn euclid_dist(p1: &RealPoint, p2: &RealPoint) -> f64 {
