@@ -1,9 +1,10 @@
-use dist::{euclid_dist};
+use space::{euclid_dist, real_combine};
 
 fn main() {
     let _d = euclid_dist;
+    let _c = real_combine;
 }
 
-mod dist;
+mod space;
 
 mod centroids;
