@@ -17,13 +17,16 @@ struct Node<Data> {
 /// A vertex neighbor. Neighbors are represented as weak pointers to avoid memory leaks.
 type Neighbor<Data> = Weak<RefCell<Node<Data>>>;
 
+/// Target vertices for some vertex edges.
 type Edges<'a, Data> = Vec<&'a Vertex<Data>>;
 
 trait AsNeighbors<Data> {
+    /// Cast vertices as neighbors.
     fn as_neighbors(&self) -> Vec<Neighbor<Data>>;
 }
 
 impl<'a, Data> AsNeighbors<Data> for Edges<'a, Data> {
+    /// Cast target vertices as node neighbors
     fn as_neighbors(&self) -> Vec<Neighbor<Data>> {
         self.iter().map(|v| Rc::downgrade(&v.node)).collect()
     }
@@ -61,6 +64,7 @@ impl<Data> Vertex<Data> {
     }
 }
 
+/// Iterator over a reference to a `Vec` of neighbors that returns target vertices
 struct EdgeIterator<'a, Data> {
     curr: usize,
     neighbors: Ref<'a, Vec<Neighbor<Data>>>,
@@ -69,6 +73,7 @@ struct EdgeIterator<'a, Data> {
 impl<'a, Data> Iterator for EdgeIterator<'a, Data> {
     type Item = Vertex<Data>;
 
+    /// Returns the next vertex.
     fn next(&mut self) -> Option<Self::Item> {
         if self.curr >= self.neighbors.len() {
             None
@@ -85,6 +90,7 @@ impl<'a, Data> Iterator for EdgeIterator<'a, Data> {
 }
 
 impl<'a, Data> EdgeIterator<'a, Data> {
+    /// Builds a new iterator.
     fn new(neighbors: Ref<'a, Vec<Neighbor<Data>>>) -> Self {
         EdgeIterator { curr: 0, neighbors }
     }
