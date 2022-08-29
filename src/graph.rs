@@ -7,6 +7,11 @@ pub(crate) struct Vertex<Data> {
     node: Rc<RefCell<Node<Data>>>,
 }
 
+pub struct Node<Data> {
+    pub data: Data,
+    pub neighbors: [Neighbor<Data>; 2],
+}
+
 type Neighbor<Data> = Option<Weak<RefCell<Node<Data>>>>;
 
 impl<Data> Vertex<Data> {
@@ -61,13 +66,6 @@ impl<'a, Data> Edges<'a, Data> {
         Edges { curr: 0, neighbors }
     }
 }
-
-pub struct Node<Data> {
-    pub data: Data,
-    pub neighbors: [Neighbor<Data>; 2],
-}
-
-impl<Point> Node<Point> {}
 
 #[cfg(test)]
 mod tests {
