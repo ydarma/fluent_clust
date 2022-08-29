@@ -6,7 +6,6 @@ use crate::space::DistFn;
 #[derive(PartialEq, Debug)]
 pub(crate) struct PointDist<'a, Point>(&'a Point, f64);
 
-#[allow(unused)]
 impl<'a, Point> PointDist<'a, Point> {
     /// The point refenrence
     pub fn coord(&self) -> &Point {
@@ -107,7 +106,7 @@ fn smallest<'a, Point>(
 
 #[cfg(test)]
 mod tests {
-    use crate::centroids::*;
+    use crate::neighbors::*;
     use crate::space;
 
     #[test]

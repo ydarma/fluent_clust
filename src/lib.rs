@@ -1,3 +1,3 @@
 pub mod space;
-pub mod centroids;
+pub mod neighbors;
 pub mod graph;
