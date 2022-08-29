@@ -1,9 +1,3 @@
-/// A function that compute a distance between two `Point`
-pub type DistFn<Point, Model> = Box<dyn Fn(&Point, &Model) -> f64>;
-
-/// A function that compute the center of two `Point`
-pub type CombineFn<Point> = fn(p1: &Point, w1:f64, p2: &Point, w2:f64) -> Point;
-
 /// A point in real space
 pub type RealPoint = Vec<f64>;
 

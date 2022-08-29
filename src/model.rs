@@ -1,6 +1,4 @@
-use crate::space::DistFn;
-
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 struct NormData<Point> {
     mu: Point,
     sigma: f64,
@@ -13,13 +11,21 @@ impl<Point> NormData<Point> {
     }
 }
 
-fn model_dist<Point: 'static>(space_dist: DistFn<Point, Point>) -> DistFn<Point, NormData<Point>> {
+fn model_dist<Point: 'static, Dist>(space_dist: Dist) -> impl Fn(&Point, &NormData<Point>) -> f64
+where
+    Dist: Fn(&Point, &Point) -> f64,
+{
     Box::new(move |p1: &Point, p2: &NormData<Point>| space_dist(p1, &p2.mu) / p2.sigma)
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{graph::Vertex, model::*, space, neighbors::{GetNeighbors, self}};
+    use crate::{
+        graph::Vertex,
+        model::*,
+        neighbors::{GetNeighbors},
+        space,
+    };
 
     #[test]
     fn test_build_norm_data() {
@@ -40,7 +46,7 @@ mod tests {
 
     #[test]
     fn test_model_find_neighbors() {
-        let dist = model_dist(Box::new(space::euclid_dist));
+        let dist = model_dist(space::euclid_dist);
         let norm1 = NormData::new(vec![1.], 4., 11.);
         let norm2 = NormData::new(vec![2.], 2., 1.);
         let norm3 = NormData::new(vec![6.], 1., 7.);
@@ -52,11 +58,18 @@ mod tests {
         graph[0].set_edges(vec![&graph[1], &graph[2]]);
         graph[1].set_edges(vec![&graph[0], &graph[2]]);
         graph[2].set_edges(vec![&graph[0], &graph[1]]);
-        let graph_dist = move |p1: &Vec<f64>, p2: &Vertex<NormData<Vec<f64>>>| {
-          let data = p2.get_data();
-          dist(p1, &data)
-        };
         let point = vec![4.];
-        let neighbors = graph.iter().get_neighbors(&point, Box::new(graph_dist));
+        let neighbors = graph
+            .iter()
+            .map(|v| v.get_data())
+            .get_neighbors(&point, move |p, m| dist(p, &m));
+        let data1 = &*graph[0].get_data();
+        let data2 = &*graph[1].get_data();
+        let neighbor1 = neighbors.0.unwrap();
+        let neighbor2 = neighbors.1.unwrap();
+        assert_eq!(data2, neighbor1.coord());
+        assert_eq!(2., neighbor1.dist());
+        assert_eq!(data1, neighbor2.coord());
+        assert_eq!(2.25, neighbor2.dist());
     }
 }
