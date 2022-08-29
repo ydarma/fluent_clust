@@ -70,10 +70,17 @@ impl<'a, Data> Iterator for EdgeIterator<'a, Data> {
     type Item = Vertex<Data>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let neighbor = self.neighbors[self.curr].upgrade();
-        let vertex = neighbor.map(|n| Vertex { node: n });
-        self.curr += 1;
-        vertex
+        if self.curr >= self.neighbors.len() {
+            None
+        } else {
+            let neighbor = self.neighbors[self.curr].upgrade();
+            self.curr += 1;
+            if neighbor.is_none() {
+                self.next()
+            } else {
+                neighbor.map(|n| Vertex { node: n })
+            }
+        }
     }
 }
 
@@ -129,8 +136,13 @@ mod tests {
     fn test_vertex_suppression() {
         let n1 = Vertex::new(1, vec![]);
         let n2 = Vertex::new(2, vec![&n1]);
-        let mut graph = vec![n1, n2];
+        let n3 = Vertex::new(2, vec![&n1, &n2]);
+        let mut graph = vec![n1, n2, n3];
         graph.remove(0);
-        assert!(graph[0].edges().next().is_none());
+        let mut e2 = graph[0].edges();
+        assert!(e2.next().is_none());
+        let mut e3 = graph[1].edges();
+        assert_eq!(graph[0].node.as_ptr(), e3.next().unwrap().node.as_ptr());
+        assert!(e3.next().is_none());
     }
 }
