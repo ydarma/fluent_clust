@@ -11,27 +11,27 @@ pub(crate) struct Vertex<Data> {
 /// Vertex internal structure, shared by vertices and edges thanks to a smart pointer.
 struct Node<Data> {
     pub data: Data,
-    pub neighbors: [Neighbor<Data>; 2],
+    pub neighbors: Vec<Neighbor<Data>>,
 }
 
 /// A vertex neighbor. Neighbors are represented as weak pointers to avoid memory leaks.
-type Neighbor<Data> = Option<Weak<RefCell<Node<Data>>>>;
+type Neighbor<Data> = Weak<RefCell<Node<Data>>>;
 
-type Edges<'a, Data> = [Option<&'a Vertex<Data>>; 2];
+type Edges<'a, Data> = Vec<&'a Vertex<Data>>;
 
 trait AsNeighbors<Data> {
-    fn as_neighbors(&self) -> [Neighbor<Data>; 2];
+    fn as_neighbors(&self) -> Vec<Neighbor<Data>>;
 }
 
 impl<'a, Data> AsNeighbors<Data> for Edges<'a, Data> {
-    fn as_neighbors(&self) -> [Option<Weak<RefCell<Node<Data>>>>; 2] {
-        self.map(|v| v.map(|v| Rc::downgrade(&v.node)))
+    fn as_neighbors(&self) -> Vec<Neighbor<Data>> {
+        self.iter().map(|v| Rc::downgrade(&v.node)).collect()
     }
 }
 
 impl<Data> Vertex<Data> {
     /// Build a new vertex.
-    pub(crate) fn new(data: Data, edges: Edges<Data>) -> Vertex<Data> {
+    pub(crate) fn new(data: Data, edges: Vec<&Vertex<Data>>) -> Vertex<Data> {
         Vertex {
             node: Rc::new(RefCell::new(Node {
                 data,
@@ -63,14 +63,14 @@ impl<Data> Vertex<Data> {
 
 struct EdgeIterator<'a, Data> {
     curr: usize,
-    neighbors: Ref<'a, [Neighbor<Data>; 2]>,
+    neighbors: Ref<'a, Vec<Neighbor<Data>>>,
 }
 
 impl<'a, Data> Iterator for EdgeIterator<'a, Data> {
     type Item = Vertex<Data>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let neighbor = self.neighbors[self.curr].as_ref()?;
+        let neighbor = &self.neighbors[self.curr];
         let vertex = neighbor.upgrade().map(|n| Vertex { node: n });
         self.curr += 1;
         vertex
@@ -78,7 +78,7 @@ impl<'a, Data> Iterator for EdgeIterator<'a, Data> {
 }
 
 impl<'a, Data> EdgeIterator<'a, Data> {
-    fn new(neighbors: Ref<'a, [Neighbor<Data>; 2]>) -> Self {
+    fn new(neighbors: Ref<'a, Vec<Neighbor<Data>>>) -> Self {
         EdgeIterator { curr: 0, neighbors }
     }
 }
@@ -89,9 +89,9 @@ mod tests {
 
     #[test]
     fn test_build_node() {
-        let n1 = Vertex::new(1, [None, None]);
-        let n2 = Vertex::new(2, [Some(&n1), None]);
-        let n3 = Vertex::new(3, [Some(&n1), Some(&n2)]);
+        let n1 = Vertex::new(1, vec![]);
+        let n2 = Vertex::new(2, vec![&n1]);
+        let n3 = Vertex::new(3, vec![&n1, &n2]);
         let mut e3 = n3.edges();
         assert_eq!(n1.node.as_ptr(), e3.next().unwrap().node.as_ptr());
         assert_eq!(n2.node.as_ptr(), e3.next().unwrap().node.as_ptr());
@@ -99,12 +99,12 @@ mod tests {
 
     #[test]
     fn test_update_node_neighbors() {
-        let n1 = Vertex::new(1, [None, None]);
-        let n2 = Vertex::new(2, [Some(&n1), None]);
-        let n3 = Vertex::new(3, [Some(&n1), Some(&n2)]);
+        let n1 = Vertex::new(1, vec![]);
+        let n2 = Vertex::new(2, vec![&n1]);
+        let n3 = Vertex::new(3, vec![&n1, &n2]);
         let nn2 = n2.edges().next().unwrap();
-        n2.set_edges([Some(&nn2), Some(&n3)]);
-        n1.set_edges([Some(&n2), Some(&n3)]);
+        n2.set_edges(vec![&nn2, &n3]);
+        n1.set_edges(vec![&n2, &n3]);
         let mut e1 = n1.edges();
         assert_eq!(n2.node.as_ptr(), e1.next().unwrap().node.as_ptr());
         assert_eq!(n3.node.as_ptr(), e1.next().unwrap().node.as_ptr());
@@ -115,8 +115,8 @@ mod tests {
 
     #[test]
     fn test_graph_mutation() {
-        let n1 = Vertex::new(1, [None, None]);
-        let n2 = Vertex::new(2, [Some(&n1), None]);
+        let n1 = Vertex::new(1, vec![]);
+        let n2 = Vertex::new(2, vec![&n1]);
         let n1_from_n2 = n2.edges().next().unwrap();
         n1_from_n2.set_data(3);
         assert_eq!(3, *n1.get_data());
@@ -124,8 +124,8 @@ mod tests {
 
     #[test]
     fn test_vertex_suppression() {
-        let n1 = Vertex::new(1, [None, None]);
-        let n2 = Vertex::new(2, [Some(&n1), None]);
+        let n1 = Vertex::new(1, vec![]);
+        let n2 = Vertex::new(2, vec![&n1]);
         let mut graph = vec![n1, n2];
         graph.remove(0);
         assert!(graph[0].edges().next().is_none());
