@@ -110,6 +110,14 @@ mod tests {
     use crate::space;
 
     #[test]
+    fn test_point_dist(){
+        let point = vec![0., 0.];
+        let p = PointDist(&point, 2.4);
+        assert_eq!(&point, p.coord());
+        assert_eq!(2.4, p.dist());
+    }
+
+    #[test]
     fn test_neighbors() {
         let centers = vec![vec![1., 1.], vec![3.5, -1.6], vec![2.4, 4.], vec![-0.5, 1.]];
         let point = &vec![0., 0.];
