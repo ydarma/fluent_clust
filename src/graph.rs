@@ -70,8 +70,8 @@ impl<'a, Data> Iterator for EdgeIterator<'a, Data> {
     type Item = Vertex<Data>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let neighbor = &self.neighbors[self.curr];
-        let vertex = neighbor.upgrade().map(|n| Vertex { node: n });
+        let neighbor = self.neighbors[self.curr].upgrade();
+        let vertex = neighbor.map(|n| Vertex { node: n });
         self.curr += 1;
         vertex
     }
@@ -102,8 +102,8 @@ mod tests {
         let n1 = Vertex::new(1, vec![]);
         let n2 = Vertex::new(2, vec![&n1]);
         let n3 = Vertex::new(3, vec![&n1, &n2]);
-        let nn2 = n2.edges().next().unwrap();
-        n2.set_edges(vec![&nn2, &n3]);
+        let n1_from_n2 = n2.edges().next().unwrap();
+        n2.set_edges(vec![&n1_from_n2, &n3]);
         n1.set_edges(vec![&n2, &n3]);
         let mut e1 = n1.edges();
         assert_eq!(n2.node.as_ptr(), e1.next().unwrap().node.as_ptr());
@@ -111,6 +111,9 @@ mod tests {
         let mut e2 = n2.edges();
         assert_eq!(n1.node.as_ptr(), e2.next().unwrap().node.as_ptr());
         assert_eq!(n3.node.as_ptr(), e2.next().unwrap().node.as_ptr());
+        let mut e3 = n3.edges();
+        assert_eq!(n1.node.as_ptr(), e3.next().unwrap().node.as_ptr());
+        assert_eq!(n2.node.as_ptr(), e3.next().unwrap().node.as_ptr());
     }
 
     #[test]
