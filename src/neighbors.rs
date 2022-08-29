@@ -28,21 +28,21 @@ pub(crate) struct Neighborhood<'a, Point>(
 /// Defines a two nearest neighbors getter function.
 ///
 /// This trait is implemented by stucts that represents a set of centroids in a space of `Point`.
-pub(crate) trait GetNeighbors<'a, Point> {
+pub(crate) trait GetNeighbors<'a, Point, Model> {
     /// Get the two nearest neighbors, ordered by their distance from the given point.
     fn get_neighbors(
         &mut self,
         point: &'a Point,
-        dist: fn(p1: &Point, p2: &Point) -> f64,
-    ) -> Neighborhood<'a, Point>;
+        dist: DistFn<Point, Model>
+    ) -> Neighborhood<'a, Model>;
 }
 
 /// Implementation of two nearest neighbors getter for a `Vec<Point>` that represents a set of centroids.
-impl<'a, Iter, Point: 'a> GetNeighbors<'a, Point> for Iter
+impl<'a, Iter, Point: 'a, Model: 'a> GetNeighbors<'a, Point, Model> for Iter
 where
-    Iter: Iterator<Item = &'a Point>,
+    Iter: Iterator<Item = &'a Model>,
 {
-    fn get_neighbors(&mut self, point: &'a Point, dist: DistFn<Point>) -> Neighborhood<'a, Point> {
+    fn get_neighbors(&mut self, point: &'a Point, dist: DistFn<Point, Model>) -> Neighborhood<'a, Model> {
         let iter = self.map(|p| PointDist(p, dist(&point, p)));
         fold_0(iter)
     }
@@ -110,7 +110,7 @@ mod tests {
     use crate::space;
 
     #[test]
-    fn test_point_dist(){
+    fn test_point_dist() {
         let point = vec![0., 0.];
         let p = PointDist(&point, 2.4);
         assert_eq!(&point, p.coord());
@@ -121,7 +121,7 @@ mod tests {
     fn test_neighbors() {
         let centers = vec![vec![1., 1.], vec![3.5, -1.6], vec![2.4, 4.], vec![-0.5, 1.]];
         let point = &vec![0., 0.];
-        let nn = centers.iter().get_neighbors(point, space::euclid_dist);
+        let nn = centers.iter().get_neighbors(point, Box::new(space::euclid_dist));
         assert_eq!(
             Neighborhood(
                 Some(PointDist(&centers[3], 1.25)),
@@ -130,7 +130,7 @@ mod tests {
             nn
         );
         let point = &vec![1.2, 5.];
-        let nn = centers.iter().get_neighbors(point, space::euclid_dist);
+        let nn = centers.iter().get_neighbors(point, Box::new(space::euclid_dist));
         assert_eq!(
             Neighborhood(
                 Some(PointDist(&centers[2], 2.44)),
@@ -144,7 +144,7 @@ mod tests {
     fn test_neighbors_0_centroid() {
         let centers = vec![];
         let point = &vec![0., 0.];
-        let nn = centers.iter().get_neighbors(point, space::euclid_dist);
+        let nn = centers.iter().get_neighbors(point, Box::new(space::euclid_dist));
         assert_eq!(Neighborhood(None, None), nn);
     }
 
@@ -152,7 +152,7 @@ mod tests {
     fn test_neighbors_1_centroid() {
         let centers = vec![vec![1., 1.]];
         let point = &vec![0., 0.];
-        let nn = centers.iter().get_neighbors(point, space::euclid_dist);
+        let nn = centers.iter().get_neighbors(point, Box::new(space::euclid_dist));
         assert_eq!(Neighborhood(Some(PointDist(&centers[0], 2.)), None), nn);
     }
 
@@ -160,7 +160,7 @@ mod tests {
     fn test_neighbors_2_centroids() {
         let centers = vec![vec![1., 1.], vec![-0.5, 1.]];
         let point = &vec![0., 0.];
-        let nn = centers.iter().get_neighbors(point, space::euclid_dist);
+        let nn = centers.iter().get_neighbors(point, Box::new(space::euclid_dist));
         assert_eq!(
             Neighborhood(
                 Some(PointDist(&centers[1], 1.25)),

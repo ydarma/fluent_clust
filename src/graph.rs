@@ -1,6 +1,6 @@
 use std::{
     cell::{Ref, RefCell},
-    rc::{Rc, Weak},
+    rc::{Rc, Weak}, ops::Deref,
 };
 
 /// A vertex of a graph.
@@ -54,7 +54,7 @@ impl<Data> Vertex<Data> {
     }
 
     /// Get this vertex data.
-    pub(crate) fn get_data(&self) -> Ref<'_, Data> {
+    pub(crate) fn get_data(&self) -> impl Deref<Target=Data> + '_ {
         Ref::map(self.node.borrow(), |n| &n.data)
     }
 
