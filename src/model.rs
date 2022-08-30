@@ -1,47 +1,56 @@
-use std::ops::{Deref, DerefMut};
+use std::ops::Deref;
 
 use crate::{
     graph::{Neighbor, Vertex},
-    neighbors::{self, GetNeighborhood, Neighborhood},
+    neighbors::{GetNeighborhood, Neighborhood},
 };
 
+/// Parameters of a normal component.
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct NormData<Point> {
+    /// mean
     mu: Point,
+    /// variance
     sigma: f64,
+    /// weight
     weight: f64,
 }
 
 impl<Point> NormData<Point> {
+    /// Builds a new normal component.
     fn new(mu: Point, sigma: f64, weight: f64) -> Self {
         NormData { mu, sigma, weight }
     }
 }
 
-fn model_dist<Point, Dist>(space_dist: Dist) -> impl Fn(&Point, &NormData<Point>) -> f64
-where
-    Dist: Fn(&Point, &Point) -> f64,
-{
-    Box::new(move |p1: &Point, p2: &NormData<Point>| space_dist(p1, &p2.mu) / p2.sigma)
-}
-
+/// Represents a mixed model.
 struct Model<Point> {
     dist: Box<dyn Fn(&Point, &NormData<Point>) -> f64>,
     graph: Vec<Vertex<NormData<Point>>>,
 }
 
 impl<Point: 'static> Model<Point> {
-    fn new<Dist>(space_dist: Dist) -> Self
+    /// Builds a new model.
+    pub(crate) fn new<Dist>(space_dist: Dist) -> Self
     where
         Dist: Fn(&Point, &Point) -> f64 + 'static,
     {
         Self {
-            dist: Box::new(model_dist(space_dist)),
+            dist: Box::new(Model::normalize_dist(space_dist)),
             graph: vec![],
         }
     }
 
-    fn get_neighborhood(
+    /// Normalizes the given distance function by dividing by the variance.
+    fn normalize_dist<Dist>(space_dist: Dist) -> impl Fn(&Point, &NormData<Point>) -> f64
+    where
+        Dist: Fn(&Point, &Point) -> f64,
+    {
+        Box::new(move |p1: &Point, p2: &NormData<Point>| space_dist(p1, &p2.mu) / p2.sigma)
+    }
+
+    /// Get the components which the given points most probably belongs to.
+    pub(crate) fn get_neighborhood(
         &self,
         point: &Point,
     ) -> Neighborhood<Vertex<NormData<Point>>, impl Deref<Target = Vertex<NormData<Point>>> + '_>
@@ -51,11 +60,10 @@ impl<Point: 'static> Model<Point> {
             .get_neighborhood(point, |p, m| (self.dist)(p, &*m.as_data()))
     }
 
-    fn get_data(&self) -> impl Iterator<Item = impl Deref<Target = NormData<Point>> + '_> {
-        self.graph.iter().map(|v| v.as_data())
-    }
-
-    fn add_component(
+    /// Add a new component to the mixed model.
+    /// Components neighbors are generally already known,
+    /// thus in order to avoid unecessary calls to `Self.get_neighborhood` they are also passed.
+    pub(crate) fn add_component(
         &mut self,
         component: NormData<Point>,
         neighbors: Vec<Neighbor<NormData<Point>>>,
@@ -65,7 +73,8 @@ impl<Point: 'static> Model<Point> {
         self.graph[i].set_neighbors(neighbors);
     }
 
-    fn get_neighbors<RefPoint>(
+    /// Extracts `Neighbor` instance for a `Neighborhood`
+    pub(crate) fn get_neighbors<RefPoint>(
         neighborhood: Neighborhood<Vertex<NormData<Point>>, RefPoint>,
     ) -> Vec<Neighbor<NormData<Point>>>
     where
@@ -85,22 +94,18 @@ impl<Point: 'static> Model<Point> {
         neighbors
     }
 
-    fn iter_components(&self) -> impl Iterator<Item = impl Deref<Target = NormData<Point>> + '_> {
+    /// Gets an iterator over the model components.
+    pub(crate) fn iter_components(&self) -> impl Iterator<Item = impl Deref<Target = NormData<Point>> + '_> {
         self.graph.iter().map(|v| v.as_data())
     }
 
+    /// Mutate the model components in sequence. The closure should return `true` to retain the components or `false` to discard it.
     pub(crate) fn iter_components_mut<F>(&mut self, mut f: F)
     where
         F: FnMut(&mut NormData<Point>) -> bool,
     {
         self.graph.retain(|v| f(&mut *v.as_data_mut()))
     }
-
-    // fn iter_components_mut(
-    //     &self,
-    // ) -> impl Iterator<Item = impl DerefMut<Target = NormData<Point>> + '_> {
-    //     self.graph.iter().map(|v| v.as_data_mut())
-    // }
 }
 
 #[cfg(test)]
@@ -119,7 +124,7 @@ mod tests {
 
     #[test]
     fn test_model_dist() {
-        let dist = model_dist(space::euclid_dist);
+        let dist = Model::normalize_dist(space::euclid_dist);
         let norm = NormData::new(vec![0.], 4., 11.1);
         let point = vec![4.];
         let d = dist(&point, &norm);
@@ -134,7 +139,7 @@ mod tests {
             NormData::new(vec![6.], 1., 7.),
         ];
         let point = vec![4.];
-        let dist = model_dist(space::euclid_dist);
+        let dist = Model::normalize_dist(space::euclid_dist);
         let neighbors = components.iter().get_neighborhood(&point, dist);
         let neighbor1 = neighbors.0.unwrap();
         let neighbor2 = neighbors.1.unwrap();
@@ -171,9 +176,7 @@ mod tests {
     #[test]
     fn test_model_remove_component() {
         let (mut model, _n1, n2) = build_model();
-        model.iter_components_mut(|component| {
-            component.weight != 0.
-        });
+        model.iter_components_mut(|component| component.weight != 0.);
         let mut components = model.iter_components();
         let c1 = &*components.next().unwrap();
         assert_eq!(&n2, c1);
