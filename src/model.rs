@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 use crate::{
     graph::{Neighbor, Vertex},
@@ -85,10 +85,14 @@ impl<Point: 'static> Model<Point> {
         neighbors
     }
 
-    fn get_components(
-        &self,
-    ) -> impl Iterator<Item = impl Deref<Target = NormData<Point>> + '_> {
+    fn get_components(&self) -> impl Iterator<Item = impl Deref<Target = NormData<Point>> + '_> {
         self.graph.iter().map(|v| v.as_data())
+    }
+
+    fn get_components_mut(
+        &self,
+    ) -> impl Iterator<Item = impl DerefMut<Target = NormData<Point>> + '_> {
+        self.graph.iter().map(|v| v.as_data_mut())
     }
 }
 
@@ -135,6 +139,28 @@ mod tests {
 
     #[test]
     fn test_model_add_component() {
+        let (model, n1, n2) = build_model();
+        let mut components = model.get_components();
+        let c1 = &*components.next().unwrap();
+        assert_eq!(&n1, c1);
+        let c2 = &*components.next().unwrap();
+        assert_eq!(&n2, c2);
+    }
+
+    #[test]
+    fn test_model_update_component() {
+        let (model, n1, n2) = build_model();
+        for mut component in model.get_components_mut() {
+            component.weight *= 0.85;
+        }
+        let mut components = model.get_components();
+        let c1 = &*components.next().unwrap();
+        assert_eq!(n1.weight * 0.95, c1.weight);
+        let c2 = &*components.next().unwrap();
+        assert_eq!(n2.weight * 0.95, c2.weight);
+    }
+
+    fn build_model() -> (Model<Vec<f64>>, NormData<Vec<f64>>, NormData<Vec<f64>>) {
         let mut model = Model::new(space::euclid_dist);
         let n1 = NormData::new(vec![4.], INFINITY, 0.);
         model.add_component(n1.clone(), vec![]);
@@ -143,10 +169,6 @@ mod tests {
         let neighbors = Model::get_neighbors(neighborhood);
         let n2 = NormData::new(p2, 3., 0.);
         model.add_component(n2.clone(), neighbors);
-        let mut components = model.get_components();
-        let c1 = &*components.next().unwrap();
-        assert_eq!(&n1, c1);
-        let c2 = &*components.next().unwrap();
-        assert_eq!(&n2, c2);
+        (model, n1, n2)
     }
 }
