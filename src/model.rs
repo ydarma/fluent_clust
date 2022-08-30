@@ -84,6 +84,12 @@ impl<Point: 'static> Model<Point> {
         }
         neighbors
     }
+
+    fn get_components(
+        &self,
+    ) -> impl Iterator<Item = impl Deref<Target = NormData<Point>> + '_> {
+        self.graph.iter().map(|v| v.as_data())
+    }
 }
 
 #[cfg(test)]
@@ -131,11 +137,16 @@ mod tests {
     fn test_model_add_component() {
         let mut model = Model::new(space::euclid_dist);
         let n1 = NormData::new(vec![4.], INFINITY, 0.);
-        model.add_component(n1, vec![]);
+        model.add_component(n1.clone(), vec![]);
         let p2 = vec![3.];
         let neighborhood = model.get_neighborhood(&p2);
         let neighbors = Model::get_neighbors(neighborhood);
         let n2 = NormData::new(p2, 3., 0.);
-        model.add_component(n2, neighbors);
+        model.add_component(n2.clone(), neighbors);
+        let mut components = model.get_components();
+        let c1 = &*components.next().unwrap();
+        assert_eq!(&n1, c1);
+        let c2 = &*components.next().unwrap();
+        assert_eq!(&n2, c2);
     }
 }
