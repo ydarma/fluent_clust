@@ -85,11 +85,11 @@ impl<Point: 'static> Model<Point> {
         neighbors
     }
 
-    fn get_components(&self) -> impl Iterator<Item = impl Deref<Target = NormData<Point>> + '_> {
+    fn iter_components(&self) -> impl Iterator<Item = impl Deref<Target = NormData<Point>> + '_> {
         self.graph.iter().map(|v| v.as_data())
     }
 
-    fn get_components_mut(
+    fn iter_components_mut(
         &self,
     ) -> impl Iterator<Item = impl DerefMut<Target = NormData<Point>> + '_> {
         self.graph.iter().map(|v| v.as_data_mut())
@@ -140,7 +140,7 @@ mod tests {
     #[test]
     fn test_model_add_component() {
         let (model, n1, n2) = build_model();
-        let mut components = model.get_components();
+        let mut components = model.iter_components();
         let c1 = &*components.next().unwrap();
         assert_eq!(&n1, c1);
         let c2 = &*components.next().unwrap();
@@ -150,10 +150,10 @@ mod tests {
     #[test]
     fn test_model_update_component() {
         let (model, n1, n2) = build_model();
-        for mut component in model.get_components_mut() {
+        for mut component in model.iter_components_mut() {
             component.weight *= 0.85;
         }
-        let mut components = model.get_components();
+        let mut components = model.iter_components();
         let c1 = &*components.next().unwrap();
         assert_eq!(n1.weight * 0.95, c1.weight);
         let c2 = &*components.next().unwrap();

@@ -41,7 +41,7 @@ impl<Data> Vertex<Data> {
     }
 
     /// Get an iterator over the vertices that are neighbor of this vertex.
-    pub(crate) fn neighbors(&self) -> impl Iterator<Item = Vertex<Data>> + '_ {
+    pub(crate) fn iter_neighbors(&self) -> impl Iterator<Item = Vertex<Data>> + '_ {
         NeighborIterator::new(Ref::map(self.node.borrow(), |n| &n.neighbors))
     }
 
@@ -104,7 +104,7 @@ mod tests {
         let n3 = Vertex::new(3);
         n2.set_neighbors(vec![n1.as_neighbor()]);
         n3.set_neighbors(vec![n1.as_neighbor(), n2.as_neighbor()]);
-        let mut e3 = n3.neighbors();
+        let mut e3 = n3.iter_neighbors();
         assert_eq!(n1.node.as_ptr(), e3.next().unwrap().node.as_ptr());
         assert_eq!(n2.node.as_ptr(), e3.next().unwrap().node.as_ptr());
     }
@@ -116,16 +116,16 @@ mod tests {
         let n3 = Vertex::new(3);
         n2.set_neighbors(vec![n1.as_neighbor()]);
         n3.set_neighbors(vec![n1.as_neighbor(), n2.as_neighbor()]);
-        let n1_from_n2 = n2.neighbors().next().unwrap();
+        let n1_from_n2 = n2.iter_neighbors().next().unwrap();
         n2.set_neighbors(vec![n1_from_n2.as_neighbor(), n3.as_neighbor()]);
         n1.set_neighbors(vec![n2.as_neighbor(), n3.as_neighbor()]);
-        let mut e1 = n1.neighbors();
+        let mut e1 = n1.iter_neighbors();
         assert_eq!(n2.node.as_ptr(), e1.next().unwrap().node.as_ptr());
         assert_eq!(n3.node.as_ptr(), e1.next().unwrap().node.as_ptr());
-        let mut e2 = n2.neighbors();
+        let mut e2 = n2.iter_neighbors();
         assert_eq!(n1.node.as_ptr(), e2.next().unwrap().node.as_ptr());
         assert_eq!(n3.node.as_ptr(), e2.next().unwrap().node.as_ptr());
-        let mut e3 = n3.neighbors();
+        let mut e3 = n3.iter_neighbors();
         assert_eq!(n1.node.as_ptr(), e3.next().unwrap().node.as_ptr());
         assert_eq!(n2.node.as_ptr(), e3.next().unwrap().node.as_ptr());
     }
@@ -135,7 +135,7 @@ mod tests {
         let n1 = Vertex::new(1);
         let n2 = Vertex::new(2);
         n2.set_neighbors(vec![n1.as_neighbor()]);
-        let n1_from_n2 = n2.neighbors().next().unwrap();
+        let n1_from_n2 = n2.iter_neighbors().next().unwrap();
         *n1_from_n2.as_data_mut() = 3;
         assert_eq!(3, *n1.as_data());
     }
@@ -149,9 +149,9 @@ mod tests {
         n3.set_neighbors(vec![n1.as_neighbor(), n2.as_neighbor()]);
         let mut graph = vec![n1, n2, n3];
         graph.remove(0);
-        let mut e2 = graph[0].neighbors();
+        let mut e2 = graph[0].iter_neighbors();
         assert!(e2.next().is_none());
-        let mut e3 = graph[1].neighbors();
+        let mut e3 = graph[1].iter_neighbors();
         assert_eq!(graph[0].node.as_ptr(), e3.next().unwrap().node.as_ptr());
         assert!(e3.next().is_none());
     }
