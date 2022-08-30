@@ -5,12 +5,12 @@ use std::{
 };
 
 /// A vertex of a graph.
-pub(crate) struct Vertex<Data> {
+pub struct Vertex<Data> {
     node: Rc<RefCell<Node<Data>>>,
 }
 
 /// A vertex neighbor. Neighbors are represented as weak pointers to avoid memory leaks.
-pub(crate) struct Neighbor<Data> {
+pub struct Neighbor<Data> {
     target: Weak<RefCell<Node<Data>>>,
 }
 
@@ -20,12 +20,9 @@ struct Node<Data> {
     neighbors: Vec<Neighbor<Data>>,
 }
 
-/// Target vertices for some vertex neighbors.
-type Neighbors<'a, Data> = Vec<&'a Vertex<Data>>;
-
 impl<Data> Vertex<Data> {
     /// Build a new vertex.
-    pub(crate) fn new(data: Data) -> Vertex<Data> {
+    pub fn new(data: Data) -> Vertex<Data> {
         Vertex {
             node: Rc::new(RefCell::new(Node {
                 data,
@@ -42,22 +39,22 @@ impl<Data> Vertex<Data> {
     }
 
     /// Get an iterator over the vertices that are neighbor of this vertex.
-    pub(crate) fn iter_neighbors(&self) -> impl Iterator<Item = Vertex<Data>> + '_ {
+    pub fn iter_neighbors(&self) -> impl Iterator<Item = Vertex<Data>> + '_ {
         NeighborIterator::new(Ref::map(self.node.borrow(), |n| &n.neighbors))
     }
 
     /// Update this vertex neighbors.
-    pub(crate) fn set_neighbors(&self, neighbors: Vec<Neighbor<Data>>) {
+    pub fn set_neighbors(&self, neighbors: Vec<Neighbor<Data>>) {
         self.node.borrow_mut().neighbors = neighbors;
     }
 
     /// Get a `Ref` to this vertex data.
-    pub(crate) fn as_data(&self) -> impl Deref<Target = Data> + '_ {
+    pub fn as_data(&self) -> impl Deref<Target = Data> + '_ {
         Ref::map(self.node.borrow(), |n| &n.data)
     }
 
     /// Get a `RefMut` to this vertex data.
-    pub(crate) fn as_data_mut(&self) -> impl DerefMut<Target = Data> + '_ {
+    pub fn as_data_mut(&self) -> impl DerefMut<Target = Data> + '_ {
         RefMut::map(self.node.borrow_mut(), |n| &mut n.data)
     }
 }

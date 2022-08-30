@@ -7,33 +7,45 @@ use crate::{
 
 /// Parameters of a normal component.
 #[derive(Clone, Copy, Debug, PartialEq)]
-struct NormalData<Point> {
-    /// mean
-    mu: Point,
-    /// variance
-    sigma: f64,
-    /// weight
-    weight: f64,
+pub struct NormalData<Point> {
+    pub(crate) mu: Point,
+    pub(crate) sigma: f64,
+    pub(crate) weight: f64,
 }
 
 impl<Point> NormalData<Point> {
     /// Builds a new normal component.
-    fn new(mu: Point, sigma: f64, weight: f64) -> Self {
+    pub fn new(mu: Point, sigma: f64, weight: f64) -> Self {
         NormalData { mu, sigma, weight }
+    }
+    
+    /// Mean.
+    pub fn mu(&self) -> &Point {
+        &self.mu
+    }
+
+    /// Variance.
+    pub fn sigma(&self) -> f64 {
+        self.sigma
+    }
+
+    /// Weight
+    pub fn weight(&self) -> f64 {
+        self.weight
     }
 }
 
-type NormalNode<Point> = Vertex<NormalData<Point>>;
+pub type NormalNode<Point> = Vertex<NormalData<Point>>;
 
 /// Represents a mixed model.
-struct Model<Point> {
+pub struct Model<Point> {
     dist: Box<dyn Fn(&Point, &NormalData<Point>) -> f64>,
     graph: Vec<NormalNode<Point>>,
 }
 
 impl<Point: 'static> Model<Point> {
     /// Builds a new model.
-    pub(crate) fn new<Dist>(space_dist: Dist) -> Self
+    pub fn new<Dist>(space_dist: Dist) -> Self
     where
         Dist: Fn(&Point, &Point) -> f64 + 'static,
     {
@@ -48,11 +60,11 @@ impl<Point: 'static> Model<Point> {
     where
         Dist: Fn(&Point, &Point) -> f64,
     {
-        Box::new(move |p1: &Point, p2: &NormalData<Point>| space_dist(p1, &p2.mu) / p2.sigma)
+        move |p1: &Point, p2: &NormalData<Point>| space_dist(p1, &p2.mu) / p2.sigma
     }
 
     /// Get the components which the given points most probably belongs to.
-    pub(crate) fn get_neighborhood(
+    pub fn get_neighborhood(
         &self,
         point: &Point,
     ) -> Neighborhood<NormalNode<Point>, impl Deref<Target = NormalNode<Point>> + '_>
@@ -63,7 +75,7 @@ impl<Point: 'static> Model<Point> {
     }
 
     /// Extracts `Neighbor` instance for a `Neighborhood`
-    pub(crate) fn get_neighbors<RefNode>(
+    pub fn get_neighbors<RefNode>(
         neighborhood: Neighborhood<NormalNode<Point>, RefNode>,
     ) -> Vec<Neighbor<NormalData<Point>>>
     where
@@ -86,7 +98,7 @@ impl<Point: 'static> Model<Point> {
     /// Add a new component to the mixed model.
     /// Components neighbors are generally already known,
     /// thus in order to avoid unecessary calls to `Self.get_neighborhood` they are also passed.
-    pub(crate) fn add_component(
+    pub fn add_component(
         &mut self,
         component: NormalData<Point>,
         neighbors: Vec<Neighbor<NormalData<Point>>>,
@@ -97,12 +109,12 @@ impl<Point: 'static> Model<Point> {
     }
 
     /// Gets an iterator over the model components.
-    pub(crate) fn iter_components(&self) -> impl Iterator<Item = impl Deref<Target = NormalData<Point>> + '_> {
+    pub fn iter_components(&self) -> impl Iterator<Item = impl Deref<Target = NormalData<Point>> + '_> {
         self.graph.iter().map(|v| v.as_data())
     }
 
     /// Mutate the model components in sequence. The closure should return `true` to retain the components or `false` to discard it.
-    pub(crate) fn iter_components_mut<F>(&mut self, mut f: F)
+    pub fn iter_components_mut<F>(&mut self, mut f: F)
     where
         F: FnMut(&mut NormalData<Point>) -> bool,
     {
