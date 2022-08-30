@@ -1,8 +1,8 @@
 use std::ops::Deref;
 
 use crate::{
-    graph::Vertex,
-    neighbors::{GetNeighbors, Neighborhood},
+    graph::{Neighbor, Vertex},
+    neighbors::{self, GetNeighborhood, Neighborhood},
 };
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -41,23 +41,55 @@ impl<Point: 'static> Model<Point> {
         }
     }
 
-    fn get_neighbors(
+    fn get_neighborhood(
         &self,
         point: &Point,
-    ) -> Neighborhood<NormData<Point>, impl Deref<Target = NormData<Point>> + '_> {
+    ) -> Neighborhood<Vertex<NormData<Point>>, impl Deref<Target = Vertex<NormData<Point>>> + '_>
+    {
         self.graph
             .iter()
-            .map(|v| v.as_data())
-            .get_neighbors(point, |p, m| (self.dist)(p, m))
+            .get_neighborhood(point, |p, m| (self.dist)(p, &*m.as_data()))
     }
 
     fn get_data(&self) -> impl Iterator<Item = impl Deref<Target = NormData<Point>> + '_> {
         self.graph.iter().map(|v| v.as_data())
     }
+
+    fn add_component(
+        &mut self,
+        component: NormData<Point>,
+        neighbors: Vec<Neighbor<NormData<Point>>>,
+    ) {
+        let i = self.graph.len();
+        self.graph.push(Vertex::new(component));
+        self.graph[i].set_neighbors(neighbors);
+    }
+
+    fn get_neighbors<RefPoint>(
+        neighborhood: Neighborhood<Vertex<NormData<Point>>, RefPoint>,
+    ) -> Vec<Neighbor<NormData<Point>>>
+    where
+        RefPoint: Deref<Target = Vertex<NormData<Point>>>,
+    {
+        let mut neighbors = vec![];
+        match neighborhood.0 {
+            Some(n1) => {
+                neighbors.push(n1.coord().as_neighbor());
+                match neighborhood.1 {
+                    Some(n2) => neighbors.push(n2.coord().as_neighbor()),
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
+        neighbors
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::f64::INFINITY;
+
     use crate::{graph::Vertex, model::*, space};
 
     #[test]
@@ -79,29 +111,31 @@ mod tests {
 
     #[test]
     fn test_model_find_neighbors() {
-        let mut model = Model::new(space::euclid_dist);
-        {
-            let graph = model.graph.as_mut();
-            *graph = vec![
-                Vertex::new(NormData::new(vec![1.], 4., 11.)),
-                Vertex::new(NormData::new(vec![2.], 2., 1.)),
-                Vertex::new(NormData::new(vec![6.], 1., 7.)),
-            ];
-            graph[0].set_neighbors(vec![graph[1].as_neighbor(), graph[2].as_neighbor()]);
-            graph[1].set_neighbors(vec![graph[0].as_neighbor(), graph[2].as_neighbor()]);
-            graph[2].set_neighbors(vec![graph[0].as_neighbor(), graph[1].as_neighbor()]);
-        }
-
+        let components = vec![
+            NormData::new(vec![1.], 4., 11.),
+            NormData::new(vec![2.], 2., 1.),
+            NormData::new(vec![6.], 1., 7.),
+        ];
         let point = vec![4.];
-        let neighbors = model.get_neighbors(&point);
-        let mut data = model.get_data();
-        let data1 = &*data.next().unwrap();
-        let data2 = &*data.next().unwrap();
+        let dist = model_dist(space::euclid_dist);
+        let neighbors = components.iter().get_neighborhood(&point, dist);
         let neighbor1 = neighbors.0.unwrap();
         let neighbor2 = neighbors.1.unwrap();
-        assert_eq!(data2, neighbor1.coord());
+        assert_eq!(&components[1], neighbor1.coord());
         assert_eq!(2., neighbor1.dist());
-        assert_eq!(data1, neighbor2.coord());
+        assert_eq!(&components[0], neighbor2.coord());
         assert_eq!(2.25, neighbor2.dist());
+    }
+
+    #[test]
+    fn test_model_add_component() {
+        let mut model = Model::new(space::euclid_dist);
+        let n1 = NormData::new(vec![4.], INFINITY, 0.);
+        model.add_component(n1, vec![]);
+        let p2 = vec![3.];
+        let neighborhood = model.get_neighborhood(&p2);
+        let neighbors = Model::get_neighbors(neighborhood);
+        let n2 = NormData::new(p2, 3., 0.);
+        model.add_component(n2, neighbors);
     }
 }

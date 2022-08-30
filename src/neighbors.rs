@@ -33,23 +33,23 @@ where
 /// Defines a two nearest neighbors getter function.
 ///
 /// This trait is implemented by stucts that represents a set of centroids in a space of `Point`.
-pub(crate) trait GetNeighbors<Point, Model, RefModel, Dist>
+pub(crate) trait GetNeighborhood<Point, Model, RefModel, Dist>
 where
     Dist: Fn(&Point, &Model) -> f64,
     RefModel: Deref<Target = Model>,
 {
     /// Get the two nearest neighbors, ordered by their distance from the given point.
-    fn get_neighbors(&mut self, point: &Point, dist: Dist) -> Neighborhood<Model, RefModel>;
+    fn get_neighborhood(&mut self, point: &Point, dist: Dist) -> Neighborhood<Model, RefModel>;
 }
 
 /// Implementation of two nearest neighbors getter for a `Vec<Point>` that represents a set of centroids.
-impl<Iter, Point, Model, RefModel, Dist> GetNeighbors<Point, Model, RefModel, Dist> for Iter
+impl<Iter, Point, Model, RefModel, Dist> GetNeighborhood<Point, Model, RefModel, Dist> for Iter
 where
     Iter: Iterator<Item = RefModel>,
     Dist: Fn(&Point, &Model) -> f64,
     RefModel: Deref<Target = Model>,
 {
-    fn get_neighbors(&mut self, point: &Point, dist: Dist) -> Neighborhood<Model, RefModel> {
+    fn get_neighborhood(&mut self, point: &Point, dist: Dist) -> Neighborhood<Model, RefModel> {
         let iter = self.map(|p| {
             let dist = dist(&point, &p);
             PointDist(p, dist)
@@ -145,7 +145,7 @@ mod tests {
         let point = &vec![0., 0.];
         let nn = centers
             .iter()
-            .get_neighbors(point, Box::new(space::euclid_dist));
+            .get_neighborhood(point, Box::new(space::euclid_dist));
         assert_eq!(
             Neighborhood(
                 Some(PointDist(&centers[3], 1.25)),
@@ -156,7 +156,7 @@ mod tests {
         let point = &vec![1.2, 5.];
         let nn = centers
             .iter()
-            .get_neighbors(point, Box::new(space::euclid_dist));
+            .get_neighborhood(point, Box::new(space::euclid_dist));
         assert_eq!(
             Neighborhood(
                 Some(PointDist(&centers[2], 2.44)),
@@ -172,7 +172,7 @@ mod tests {
         let point = &vec![0., 0.];
         let nn = centers
             .iter()
-            .get_neighbors(point, Box::new(space::euclid_dist));
+            .get_neighborhood(point, Box::new(space::euclid_dist));
         assert_eq!(Neighborhood(None, None), nn);
     }
 
@@ -182,7 +182,7 @@ mod tests {
         let point = &vec![0., 0.];
         let nn = centers
             .iter()
-            .get_neighbors(point, Box::new(space::euclid_dist));
+            .get_neighborhood(point, Box::new(space::euclid_dist));
         assert_eq!(Neighborhood(Some(PointDist(&centers[0], 2.)), None), nn);
     }
 
@@ -192,7 +192,7 @@ mod tests {
         let point = &vec![0., 0.];
         let nn = centers
             .iter()
-            .get_neighbors(point, Box::new(space::euclid_dist));
+            .get_neighborhood(point, Box::new(space::euclid_dist));
         assert_eq!(
             Neighborhood(
                 Some(PointDist(&centers[1], 1.25)),
