@@ -89,18 +89,25 @@ impl<Point: 'static> Model<Point> {
         self.graph.iter().map(|v| v.as_data())
     }
 
-    fn iter_components_mut(
-        &self,
-    ) -> impl Iterator<Item = impl DerefMut<Target = NormData<Point>> + '_> {
-        self.graph.iter().map(|v| v.as_data_mut())
+    pub(crate) fn iter_components_mut<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&mut NormData<Point>) -> bool,
+    {
+        self.graph.retain(|v| f(&mut *v.as_data_mut()))
     }
+
+    // fn iter_components_mut(
+    //     &self,
+    // ) -> impl Iterator<Item = impl DerefMut<Target = NormData<Point>> + '_> {
+    //     self.graph.iter().map(|v| v.as_data_mut())
+    // }
 }
 
 #[cfg(test)]
 mod tests {
     use std::f64::INFINITY;
 
-    use crate::{graph::Vertex, model::*, space};
+    use crate::{model::*, space};
 
     #[test]
     fn test_build_norm_data() {
@@ -149,15 +156,32 @@ mod tests {
 
     #[test]
     fn test_model_update_component() {
-        let (model, n1, n2) = build_model();
-        for mut component in model.iter_components_mut() {
-            component.weight *= 0.85;
-        }
+        let (mut model, n1, n2) = build_model();
+        model.iter_components_mut(|component| {
+            component.weight *= 0.95;
+            true
+        });
         let mut components = model.iter_components();
         let c1 = &*components.next().unwrap();
         assert_eq!(n1.weight * 0.95, c1.weight);
         let c2 = &*components.next().unwrap();
         assert_eq!(n2.weight * 0.95, c2.weight);
+    }
+
+    #[test]
+    fn test_model_remove_component() {
+        let (mut model, _n1, n2) = build_model();
+        model.iter_components_mut(|component| {
+            component.weight != 0.
+        });
+        let mut components = model.iter_components();
+        let c1 = &*components.next().unwrap();
+        assert_eq!(&n2, c1);
+        let c2 = components.next();
+        assert!(c2.is_none());
+        assert_eq!(1, model.graph.len());
+        assert_eq!(&n2, &*model.graph[0].as_data());
+        assert!(model.graph[0].iter_neighbors().next().is_none());
     }
 
     fn build_model() -> (Model<Vec<f64>>, NormData<Vec<f64>>, NormData<Vec<f64>>) {
@@ -167,7 +191,7 @@ mod tests {
         let p2 = vec![3.];
         let neighborhood = model.get_neighborhood(&p2);
         let neighbors = Model::get_neighbors(neighborhood);
-        let n2 = NormData::new(p2, 3., 0.);
+        let n2 = NormData::new(p2, 3., 1.);
         model.add_component(n2.clone(), neighbors);
         (model, n1, n2)
     }
