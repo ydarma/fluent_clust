@@ -60,19 +60,6 @@ impl<Point: 'static> Model<Point> {
             .get_neighborhood(point, |p, m| (self.dist)(p, &*m.as_data()))
     }
 
-    /// Add a new component to the mixed model.
-    /// Components neighbors are generally already known,
-    /// thus in order to avoid unecessary calls to `Self.get_neighborhood` they are also passed.
-    pub(crate) fn add_component(
-        &mut self,
-        component: NormData<Point>,
-        neighbors: Vec<Neighbor<NormData<Point>>>,
-    ) {
-        let i = self.graph.len();
-        self.graph.push(Vertex::new(component));
-        self.graph[i].set_neighbors(neighbors);
-    }
-
     /// Extracts `Neighbor` instance for a `Neighborhood`
     pub(crate) fn get_neighbors<RefPoint>(
         neighborhood: Neighborhood<Vertex<NormData<Point>>, RefPoint>,
@@ -92,6 +79,19 @@ impl<Point: 'static> Model<Point> {
             _ => {}
         }
         neighbors
+    }
+
+    /// Add a new component to the mixed model.
+    /// Components neighbors are generally already known,
+    /// thus in order to avoid unecessary calls to `Self.get_neighborhood` they are also passed.
+    pub(crate) fn add_component(
+        &mut self,
+        component: NormData<Point>,
+        neighbors: Vec<Neighbor<NormData<Point>>>,
+    ) {
+        let i = self.graph.len();
+        self.graph.push(Vertex::new(component));
+        self.graph[i].set_neighbors(neighbors);
     }
 
     /// Gets an iterator over the model components.

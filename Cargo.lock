@@ -3,5 +3,5 @@
 version = 3
 
 [[package]]
-name = "fluent_clust"
+name = "fluent_data"
 version = "0.1.0"
