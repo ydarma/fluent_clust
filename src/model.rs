@@ -1,4 +1,11 @@
-#[derive(Clone, Debug, PartialEq)]
+use std::ops::Deref;
+
+use crate::{
+    graph::Vertex,
+    neighbors::{GetNeighbors, Neighborhood},
+};
+
+#[derive(Clone, Copy, Debug, PartialEq)]
 struct NormData<Point> {
     mu: Point,
     sigma: f64,
@@ -11,16 +18,47 @@ impl<Point> NormData<Point> {
     }
 }
 
-fn model_dist<Point: 'static, Dist>(space_dist: Dist) -> impl Fn(&Point, &NormData<Point>) -> f64
+fn model_dist<Point, Dist>(space_dist: Dist) -> impl Fn(&Point, &NormData<Point>) -> f64
 where
     Dist: Fn(&Point, &Point) -> f64,
 {
     Box::new(move |p1: &Point, p2: &NormData<Point>| space_dist(p1, &p2.mu) / p2.sigma)
 }
 
+struct Model<Point> {
+    dist: Box<dyn Fn(&Point, &NormData<Point>) -> f64>,
+    graph: Vec<Vertex<NormData<Point>>>,
+}
+
+impl<Point: 'static> Model<Point> {
+    fn new<Dist>(space_dist: Dist) -> Self
+    where
+        Dist: Fn(&Point, &Point) -> f64 + 'static,
+    {
+        Self {
+            dist: Box::new(model_dist(space_dist)),
+            graph: vec![],
+        }
+    }
+
+    fn get_neighbors(
+        &self,
+        point: &Point,
+    ) -> Neighborhood<NormData<Point>, impl Deref<Target = NormData<Point>> + '_> {
+        self.graph
+            .iter()
+            .map(|v| v.as_data())
+            .get_neighbors(point, |p, m| (self.dist)(p, m))
+    }
+
+    fn get_data(&self) -> impl Iterator<Item = impl Deref<Target = NormData<Point>> + '_> {
+        self.graph.iter().map(|v| v.as_data())
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::{graph::Vertex, model::*, neighbors::GetNeighbors, space};
+    use crate::{graph::Vertex, model::*, space};
 
     #[test]
     fn test_build_norm_data() {
@@ -32,7 +70,7 @@ mod tests {
 
     #[test]
     fn test_model_dist() {
-        let dist = model_dist(Box::new(space::euclid_dist));
+        let dist = model_dist(space::euclid_dist);
         let norm = NormData::new(vec![0.], 4., 11.1);
         let point = vec![4.];
         let d = dist(&point, &norm);
@@ -41,25 +79,24 @@ mod tests {
 
     #[test]
     fn test_model_find_neighbors() {
-        let dist = model_dist(space::euclid_dist);
-        let norm1 = NormData::new(vec![1.], 4., 11.);
-        let norm2 = NormData::new(vec![2.], 2., 1.);
-        let norm3 = NormData::new(vec![6.], 1., 7.);
-        let graph = vec![
-            Vertex::new(norm1),
-            Vertex::new(norm2),
-            Vertex::new(norm3),
-        ];
-        graph[0].set_neighbors(vec![graph[1].as_neighbor(), graph[2].as_neighbor()]);
-        graph[1].set_neighbors(vec![graph[0].as_neighbor(), graph[2].as_neighbor()]);
-        graph[2].set_neighbors(vec![graph[0].as_neighbor(), graph[1].as_neighbor()]);
+        let mut model = Model::new(space::euclid_dist);
+        {
+            let graph = model.graph.as_mut();
+            *graph = vec![
+                Vertex::new(NormData::new(vec![1.], 4., 11.)),
+                Vertex::new(NormData::new(vec![2.], 2., 1.)),
+                Vertex::new(NormData::new(vec![6.], 1., 7.)),
+            ];
+            graph[0].set_neighbors(vec![graph[1].as_neighbor(), graph[2].as_neighbor()]);
+            graph[1].set_neighbors(vec![graph[0].as_neighbor(), graph[2].as_neighbor()]);
+            graph[2].set_neighbors(vec![graph[0].as_neighbor(), graph[1].as_neighbor()]);
+        }
+
         let point = vec![4.];
-        let neighbors = graph
-            .iter()
-            .map(|v| v.as_data())
-            .get_neighbors(&point, move |p, m| dist(p, &m));
-        let data1 = &*graph[0].as_data();
-        let data2 = &*graph[1].as_data();
+        let neighbors = model.get_neighbors(&point);
+        let mut data = model.get_data();
+        let data1 = &*data.next().unwrap();
+        let data2 = &*data.next().unwrap();
         let neighbor1 = neighbors.0.unwrap();
         let neighbor2 = neighbors.1.unwrap();
         assert_eq!(data2, neighbor1.coord());
