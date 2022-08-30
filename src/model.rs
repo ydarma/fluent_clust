@@ -20,12 +20,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        graph::Vertex,
-        model::*,
-        neighbors::{GetNeighbors},
-        space,
-    };
+    use crate::{graph::Vertex, model::*, neighbors::GetNeighbors, space};
 
     #[test]
     fn test_build_norm_data() {
@@ -51,20 +46,20 @@ mod tests {
         let norm2 = NormData::new(vec![2.], 2., 1.);
         let norm3 = NormData::new(vec![6.], 1., 7.);
         let graph = vec![
-            Vertex::new(norm1, vec![]),
-            Vertex::new(norm2, vec![]),
-            Vertex::new(norm3, vec![]),
+            Vertex::new(norm1),
+            Vertex::new(norm2),
+            Vertex::new(norm3),
         ];
-        graph[0].set_edges(vec![&graph[1], &graph[2]]);
-        graph[1].set_edges(vec![&graph[0], &graph[2]]);
-        graph[2].set_edges(vec![&graph[0], &graph[1]]);
+        graph[0].set_neighbors(vec![graph[1].as_neighbor(), graph[2].as_neighbor()]);
+        graph[1].set_neighbors(vec![graph[0].as_neighbor(), graph[2].as_neighbor()]);
+        graph[2].set_neighbors(vec![graph[0].as_neighbor(), graph[1].as_neighbor()]);
         let point = vec![4.];
         let neighbors = graph
             .iter()
-            .map(|v| v.get_data())
+            .map(|v| v.as_data())
             .get_neighbors(&point, move |p, m| dist(p, &m));
-        let data1 = &*graph[0].get_data();
-        let data2 = &*graph[1].get_data();
+        let data1 = &*graph[0].as_data();
+        let data2 = &*graph[1].as_data();
         let neighbor1 = neighbors.0.unwrap();
         let neighbor2 = neighbors.1.unwrap();
         assert_eq!(data2, neighbor1.coord());
