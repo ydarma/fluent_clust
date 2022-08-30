@@ -2,11 +2,11 @@ use std::{mem::swap, ops::Deref};
 
 /// A reference to a `Point` and its distance to some other `Point`
 #[derive(PartialEq, Debug)]
-pub(crate) struct PointDist<Point, RefPoint>(RefPoint, f64)
+pub(crate) struct NeighborDist<Point, RefPoint>(RefPoint, f64)
 where
     RefPoint: Deref<Target = Point>;
 
-impl<Point, RefPoint> PointDist<Point, RefPoint>
+impl<Point, RefPoint> NeighborDist<Point, RefPoint>
 where
     RefPoint: Deref<Target = Point>,
 {
@@ -23,12 +23,12 @@ where
 
 /// The two nearest neighbors when they exist
 #[derive(PartialEq, Debug)]
-pub(crate) struct Neighborhood<Point, RefPoint>(
-    pub Option<PointDist<Point, RefPoint>>,
-    pub Option<PointDist<Point, RefPoint>>,
+pub(crate) struct Neighborhood<Model, RefModel>(
+    pub Option<NeighborDist<Model, RefModel>>,
+    pub Option<NeighborDist<Model, RefModel>>,
 )
 where
-    RefPoint: Deref<Target = Point>;
+    RefModel: Deref<Target = Model>;
 
 /// Defines a two nearest neighbors getter function.
 ///
@@ -52,18 +52,18 @@ where
     fn get_neighborhood(&mut self, point: &Point, dist: Dist) -> Neighborhood<Model, RefModel> {
         let iter = self.map(|p| {
             let dist = dist(&point, &p);
-            PointDist(p, dist)
+            NeighborDist(p, dist)
         });
         fold_0(iter)
     }
 }
 
 /// find neighbors given a (centroid, distance) couples iterator
-fn fold_0<Point, RefPoint>(
-    mut iter: impl Iterator<Item = PointDist<Point, RefPoint>>,
-) -> Neighborhood<Point, RefPoint>
+fn fold_0<Model, RefModel>(
+    mut iter: impl Iterator<Item = NeighborDist<Model, RefModel>>,
+) -> Neighborhood<Model, RefModel>
 where
-    RefPoint: Deref<Target = Point>,
+    RefModel: Deref<Target = Model>,
 {
     let p1 = iter.next();
     if let Some(d1) = p1 {
@@ -74,12 +74,12 @@ where
 }
 
 /// find the two nearest neighbors when at least one centroid exist.
-fn fold_1<Point, RefPoint>(
-    first: PointDist<Point, RefPoint>,
-    mut others: impl Iterator<Item = PointDist<Point, RefPoint>>,
-) -> Neighborhood<Point, RefPoint>
+fn fold_1<Model, RefModel>(
+    first: NeighborDist<Model, RefModel>,
+    mut others: impl Iterator<Item = NeighborDist<Model, RefModel>>,
+) -> Neighborhood<Model, RefModel>
 where
-    RefPoint: Deref<Target = Point>,
+    RefModel: Deref<Target = Model>,
 {
     let p2 = others.next();
     if let Some(d2) = p2 {
@@ -90,13 +90,13 @@ where
 }
 
 /// find the two nearest neighbors when at least two centroids exist.
-fn fold_others_2<Point, RefPoint>(
-    mut first: PointDist<Point, RefPoint>,
-    mut second: PointDist<Point, RefPoint>,
-    others: impl Iterator<Item = PointDist<Point, RefPoint>>,
-) -> Neighborhood<Point, RefPoint>
+fn fold_others_2<Model, RefModel>(
+    mut first: NeighborDist<Model, RefModel>,
+    mut second: NeighborDist<Model, RefModel>,
+    others: impl Iterator<Item = NeighborDist<Model, RefModel>>,
+) -> Neighborhood<Model, RefModel>
 where
-    RefPoint: Deref<Target = Point>,
+    RefModel: Deref<Target = Model>,
 {
     if first.1 > second.1 {
         swap(&mut first, &mut second)
@@ -106,13 +106,13 @@ where
 }
 
 /// find the two nearest neighbors among three centroids.
-fn smallest<Point, RefPoint>(
-    mut d1: PointDist<Point, RefPoint>,
-    mut d2: PointDist<Point, RefPoint>,
-    mut d3: PointDist<Point, RefPoint>,
-) -> (PointDist<Point, RefPoint>, PointDist<Point, RefPoint>)
+fn smallest<Model, RefModel>(
+    mut d1: NeighborDist<Model, RefModel>,
+    mut d2: NeighborDist<Model, RefModel>,
+    mut d3: NeighborDist<Model, RefModel>,
+) -> (NeighborDist<Model, RefModel>, NeighborDist<Model, RefModel>)
 where
-    RefPoint: Deref<Target = Point>,
+    RefModel: Deref<Target = Model>,
 {
     if d1.1 > d2.1 {
         swap(&mut d1, &mut d2);
@@ -134,7 +134,7 @@ mod tests {
     #[test]
     fn test_point_dist() {
         let point = vec![0., 0.];
-        let p = PointDist(&point, 2.4);
+        let p = NeighborDist(&point, 2.4);
         assert_eq!(&point, p.coord());
         assert_eq!(2.4, p.dist());
     }
@@ -148,8 +148,8 @@ mod tests {
             .get_neighborhood(point, Box::new(space::euclid_dist));
         assert_eq!(
             Neighborhood(
-                Some(PointDist(&centers[3], 1.25)),
-                Some(PointDist(&centers[0], 2.))
+                Some(NeighborDist(&centers[3], 1.25)),
+                Some(NeighborDist(&centers[0], 2.))
             ),
             nn
         );
@@ -159,8 +159,8 @@ mod tests {
             .get_neighborhood(point, Box::new(space::euclid_dist));
         assert_eq!(
             Neighborhood(
-                Some(PointDist(&centers[2], 2.44)),
-                Some(PointDist(&centers[0], 16.04))
+                Some(NeighborDist(&centers[2], 2.44)),
+                Some(NeighborDist(&centers[0], 16.04))
             ),
             nn
         );
@@ -183,7 +183,7 @@ mod tests {
         let nn = centers
             .iter()
             .get_neighborhood(point, Box::new(space::euclid_dist));
-        assert_eq!(Neighborhood(Some(PointDist(&centers[0], 2.)), None), nn);
+        assert_eq!(Neighborhood(Some(NeighborDist(&centers[0], 2.)), None), nn);
     }
 
     #[test]
@@ -195,8 +195,8 @@ mod tests {
             .get_neighborhood(point, Box::new(space::euclid_dist));
         assert_eq!(
             Neighborhood(
-                Some(PointDist(&centers[1], 1.25)),
-                Some(PointDist(&centers[0], 2.))
+                Some(NeighborDist(&centers[1], 1.25)),
+                Some(NeighborDist(&centers[0], 2.))
             ),
             nn
         );
@@ -205,20 +205,20 @@ mod tests {
     #[test]
     fn test_smallest() {
         let p: Vec<f64> = vec![];
-        let d1 = PointDist(&p, 7.);
-        let d2 = PointDist(&p, 4.);
-        let d3 = PointDist(&p, 1.);
+        let d1 = NeighborDist(&p, 7.);
+        let d2 = NeighborDist(&p, 4.);
+        let d3 = NeighborDist(&p, 1.);
         let s = smallest(d1, d2, d3);
-        assert_eq!((PointDist(&p, 1.), PointDist(&p, 4.)), s);
-        let d1 = PointDist(&p, 7.);
-        let d2 = PointDist(&p, 4.);
-        let d3 = PointDist(&p, 5.);
+        assert_eq!((NeighborDist(&p, 1.), NeighborDist(&p, 4.)), s);
+        let d1 = NeighborDist(&p, 7.);
+        let d2 = NeighborDist(&p, 4.);
+        let d3 = NeighborDist(&p, 5.);
         let s = smallest(d1, d2, d3);
-        assert_eq!((PointDist(&p, 4.), PointDist(&p, 5.)), s);
-        let d1 = PointDist(&p, 7.);
-        let d2 = PointDist(&p, 4.);
-        let d3 = PointDist(&p, 8.);
+        assert_eq!((NeighborDist(&p, 4.), NeighborDist(&p, 5.)), s);
+        let d1 = NeighborDist(&p, 7.);
+        let d2 = NeighborDist(&p, 4.);
+        let d3 = NeighborDist(&p, 8.);
         let s = smallest(d1, d2, d3);
-        assert_eq!((PointDist(&p, 4.), PointDist(&p, 7.)), s);
+        assert_eq!((NeighborDist(&p, 4.), NeighborDist(&p, 7.)), s);
     }
 }
