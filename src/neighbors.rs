@@ -1,10 +1,10 @@
 use std::{mem::swap, ops::Deref};
 
-/// A reference to a `Point` and its distance to some other `Point`
+/// A reference to a neighbor and its distance from some point in space.
 #[derive(PartialEq, Debug)]
-pub(crate) struct NeighborDist<Point, RefPoint>(RefPoint, f64)
+pub(crate) struct NeighborDist<Model, RefModel>(RefModel, f64)
 where
-    RefPoint: Deref<Target = Point>;
+    RefModel: Deref<Target = Model>;
 
 impl<Point, RefPoint> NeighborDist<Point, RefPoint>
 where
@@ -21,7 +21,7 @@ where
     }
 }
 
-/// The two nearest neighbors when they exist
+/// The two nearest neighbors when they exist.
 #[derive(PartialEq, Debug)]
 pub(crate) struct Neighborhood<Model, RefModel>(
     pub Option<NeighborDist<Model, RefModel>>,
@@ -32,7 +32,7 @@ where
 
 /// Defines a two nearest neighbors getter function.
 ///
-/// This trait is implemented by stucts that represents a set of centroids in a space of `Point`.
+/// This trait is implemented by stucts that represents a set of models in a space of `Point`.
 pub(crate) trait GetNeighborhood<Point, Model, RefModel, Dist>
 where
     Dist: Fn(&Point, &Model) -> f64,
@@ -42,12 +42,12 @@ where
     fn get_neighborhood(&mut self, point: &Point, dist: Dist) -> Neighborhood<Model, RefModel>;
 }
 
-/// Implementation of two nearest neighbors getter for a `Vec<Point>` that represents a set of centroids.
+/// Implementation of two nearest neighbors getter for an iterator over a set of models.
 impl<Iter, Point, Model, RefModel, Dist> GetNeighborhood<Point, Model, RefModel, Dist> for Iter
 where
     Iter: Iterator<Item = RefModel>,
-    Dist: Fn(&Point, &Model) -> f64,
     RefModel: Deref<Target = Model>,
+    Dist: Fn(&Point, &Model) -> f64,
 {
     fn get_neighborhood(&mut self, point: &Point, dist: Dist) -> Neighborhood<Model, RefModel> {
         let iter = self.map(|p| {
@@ -58,7 +58,7 @@ where
     }
 }
 
-/// find neighbors given a (centroid, distance) couples iterator
+/// find neighbors given a (model, distance) couples iterator
 fn fold_0<Model, RefModel>(
     mut iter: impl Iterator<Item = NeighborDist<Model, RefModel>>,
 ) -> Neighborhood<Model, RefModel>
@@ -73,7 +73,7 @@ where
     }
 }
 
-/// find the two nearest neighbors when at least one centroid exist.
+/// find the two nearest neighbors when at least one model exist.
 fn fold_1<Model, RefModel>(
     first: NeighborDist<Model, RefModel>,
     mut others: impl Iterator<Item = NeighborDist<Model, RefModel>>,
@@ -89,7 +89,7 @@ where
     }
 }
 
-/// find the two nearest neighbors when at least two centroids exist.
+/// find the two nearest neighbors when at least two models exist.
 fn fold_others_2<Model, RefModel>(
     mut first: NeighborDist<Model, RefModel>,
     mut second: NeighborDist<Model, RefModel>,
@@ -105,7 +105,7 @@ where
     Neighborhood(Some(d1), Some(d2))
 }
 
-/// find the two nearest neighbors among three centroids.
+/// find the two nearest neighbors among three models.
 fn smallest<Model, RefModel>(
     mut d1: NeighborDist<Model, RefModel>,
     mut d2: NeighborDist<Model, RefModel>,
@@ -167,7 +167,7 @@ mod tests {
     }
 
     #[test]
-    fn test_neighbors_0_centroid() {
+    fn test_neighbors_0_model() {
         let centers = vec![];
         let point = &vec![0., 0.];
         let nn = centers
@@ -177,7 +177,7 @@ mod tests {
     }
 
     #[test]
-    fn test_neighbors_1_centroid() {
+    fn test_neighbors_1_model() {
         let centers = vec![vec![1., 1.]];
         let point = &vec![0., 0.];
         let nn = centers
@@ -187,7 +187,7 @@ mod tests {
     }
 
     #[test]
-    fn test_neighbors_2_centroids() {
+    fn test_neighbors_2_models() {
         let centers = vec![vec![1., 1.], vec![-0.5, 1.]];
         let point = &vec![0., 0.];
         let nn = centers
