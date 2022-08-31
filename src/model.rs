@@ -18,7 +18,7 @@ impl<Point> NormalData<Point> {
     pub fn new(mu: Point, sigma: f64, weight: f64) -> Self {
         NormalData { mu, sigma, weight }
     }
-    
+
     /// Mean.
     pub fn mu(&self) -> &Point {
         &self.mu
@@ -67,26 +67,28 @@ impl<Point: 'static> Model<Point> {
     pub fn get_neighborhood(
         &self,
         point: &Point,
-    ) -> Neighborhood<NormalNode<Point>, impl Deref<Target = NormalNode<Point>> + '_>
+    ) -> Vec<NormalNode<Point>> 
     {
-        self.graph
+        let neighborhood = self
+            .graph
             .iter()
-            .get_neighborhood(point, |p, m| (self.dist)(p, &*m.as_data()))
+            .get_neighborhood(point, |p, m| (self.dist)(p, &*m.as_data()));
+        Self::get_neighbors(neighborhood)
     }
 
     /// Extracts `Neighbor` instance for a `Neighborhood`
-    pub fn get_neighbors<RefNode>(
+    fn get_neighbors<RefNode>(
         neighborhood: Neighborhood<NormalNode<Point>, RefNode>,
-    ) -> Vec<Neighbor<NormalData<Point>>>
+    ) -> Vec<NormalNode<Point>>
     where
         RefNode: Deref<Target = NormalNode<Point>>,
     {
         let mut neighbors = vec![];
         match neighborhood.0 {
             Some(n1) => {
-                neighbors.push(n1.coord().as_neighbor());
+                neighbors.push(Vertex::clone(n1.coord()));
                 match neighborhood.1 {
-                    Some(n2) => neighbors.push(n2.coord().as_neighbor()),
+                    Some(n2) => neighbors.push(Vertex::clone(n2.coord())),
                     _ => {}
                 }
             }
@@ -109,7 +111,9 @@ impl<Point: 'static> Model<Point> {
     }
 
     /// Gets an iterator over the model components.
-    pub fn iter_components(&self) -> impl Iterator<Item = impl Deref<Target = NormalData<Point>> + '_> {
+    pub fn iter_components(
+        &self,
+    ) -> impl Iterator<Item = impl Deref<Target = NormalData<Point>> + '_> {
         self.graph.iter().map(|v| v.as_data())
     }
 
@@ -124,8 +128,6 @@ impl<Point: 'static> Model<Point> {
 
 #[cfg(test)]
 mod tests {
-    use std::f64::INFINITY;
-
     use crate::{model::*, space};
 
     #[test]
@@ -203,13 +205,12 @@ mod tests {
 
     fn build_model() -> (Model<Vec<f64>>, NormalData<Vec<f64>>, NormalData<Vec<f64>>) {
         let mut model = Model::new(space::euclid_dist);
-        let n1 = NormalData::new(vec![4.], INFINITY, 0.);
+        let n1 = NormalData::new(vec![4.], f64::INFINITY, 0.);
         model.add_component(n1.clone(), vec![]);
         let p2 = vec![3.];
-        let neighborhood = model.get_neighborhood(&p2);
-        let neighbors = Model::get_neighbors(neighborhood);
+        let neighbors = model.get_neighborhood(&p2);
         let n2 = NormalData::new(p2, 3., 1.);
-        model.add_component(n2.clone(), neighbors);
+        model.add_component(n2.clone(), neighbors.iter().map(|n| n.as_neighbor()).collect());
         (model, n1, n2)
     }
 }

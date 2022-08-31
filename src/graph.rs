@@ -9,6 +9,12 @@ pub struct Vertex<Data> {
     node: Rc<RefCell<Node<Data>>>,
 }
 
+impl<Data> Clone for Vertex<Data> {
+    fn clone(&self) -> Self {
+        Self { node: self.node.clone() }
+    }
+}
+
 /// A vertex neighbor. Neighbors are represented as weak pointers to avoid memory leaks.
 pub struct Neighbor<Data> {
     target: Weak<RefCell<Node<Data>>>,
@@ -49,7 +55,7 @@ impl<Data> Vertex<Data> {
     }
 
     /// Get a `Ref` to this vertex data.
-    pub fn as_data(&self) -> impl Deref<Target = Data> + '_ {
+    pub fn as_data<'a>(&'a self) -> impl Deref<Target = Data> + 'a {
         Ref::map(self.node.borrow(), |n| &n.data)
     }
 
