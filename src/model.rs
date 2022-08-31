@@ -64,11 +64,7 @@ impl<Point: 'static> Model<Point> {
     }
 
     /// Get the components which the given points most probably belongs to.
-    pub fn get_neighborhood(
-        &self,
-        point: &Point,
-    ) -> Vec<NormalNode<Point>> 
-    {
+    pub fn get_neighborhood(&self, point: &Point) -> Vec<NormalNode<Point>> {
         let neighborhood = self
             .graph
             .iter()
@@ -123,6 +119,16 @@ impl<Point: 'static> Model<Point> {
         F: FnMut(&mut NormalData<Point>) -> bool,
     {
         self.graph.retain(|v| f(&mut *v.as_data_mut()))
+    }
+}
+
+pub trait GetNeighbors<Point> {
+    fn get_neighbors(&self) -> Vec<Neighbor<NormalData<Point>>>;
+}
+
+impl<Point> GetNeighbors<Point> for Vec<NormalNode<Point>> {
+    fn get_neighbors(&self) -> Vec<Neighbor<NormalData<Point>>> {
+        self.iter().map(|n| n.as_neighbor()).collect()
     }
 }
 
@@ -208,9 +214,9 @@ mod tests {
         let n1 = NormalData::new(vec![4.], f64::INFINITY, 0.);
         model.add_component(n1.clone(), vec![]);
         let p2 = vec![3.];
-        let neighbors = model.get_neighborhood(&p2);
+        let neighborhood = model.get_neighborhood(&p2);
         let n2 = NormalData::new(p2, 3., 1.);
-        model.add_component(n2.clone(), neighbors.iter().map(|n| n.as_neighbor()).collect());
+        model.add_component(n2.clone(), neighborhood.get_neighbors());
         (model, n1, n2)
     }
 }
