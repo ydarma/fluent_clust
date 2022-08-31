@@ -34,14 +34,8 @@ where
         let neighborhood = model.get_neighborhood(&point);
         let closest = neighborhood.first().map(|v| v.as_data_mut());
         match closest {
-            Some(closest) => {
-                let mut component = closest;
-                let weight = component.weight + 1.;
-                let mu = self.update_mu(&component, &point);
-                let sigma = self.update_sigma(&component, &point, weight);
-                component.mu = mu;
-                component.sigma = sigma;
-                component.weight = weight;
+            Some(component) => {
+                self.update_component(component, &point);
             }
             None => {
                 self.init(model, point);
@@ -49,29 +43,35 @@ where
         }
     }
 
+    fn update_component(
+        &self,
+        mut component: impl DerefMut<Target = NormalData<Point>>,
+        point: &Point,
+    ) {
+        component.mu = self.update_mu(&component, point);
+        component.sigma = self.update_sigma(&component, point);
+        component.weight += 1.;
+    }
+
     fn update_mu(
         &self,
         component: &impl DerefMut<Target = NormalData<Point>>,
         point: &Point,
     ) -> Point {
-        let mu = (self.combine)(&component.mu, component.weight, point, 1.);
-        mu
+        (self.combine)(&component.mu, component.weight, point, 1.)
     }
 
     fn update_sigma(
         &self,
         component: &impl DerefMut<Target = NormalData<Point>>,
         point: &Point,
-        weight: f64,
     ) -> f64 {
         let d = (self.dist)(&component.mu, point);
-        let sigma = (if component.weight == 0. {
-            0.
+        if component.weight == 0. {
+            d
         } else {
-            component.sigma * component.weight
-        } + d)
-            / weight;
-        sigma
+            (component.sigma * component.weight) + d / (component.weight + 1.)
+        }
     }
 }
 
