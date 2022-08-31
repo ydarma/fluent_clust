@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use crate::{
     graph::{Neighbor, Vertex},
-    neighbors::{GetNeighborhood, Neighborhood},
+    neighborhood::{GetNeighborhood, Neighborhood},
 };
 
 /// Parameters of a normal component.

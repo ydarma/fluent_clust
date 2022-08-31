@@ -10,11 +10,6 @@ impl<Point, RefPoint> NeighborDist<Point, RefPoint>
 where
     RefPoint: Deref<Target = Point>,
 {
-    /// Builds a new instance.
-    pub fn new(coord: RefPoint, dist: f64) -> Self {
-        Self(coord, dist)
-    }
-
     /// The point refenrence
     pub fn coord(&self) -> &Point {
         &self.0
@@ -46,20 +41,19 @@ where
     /// Get the two nearest neighbors, ordered by their distance from the given point.
     /// ```
     /// use fluent_data::space;
-    /// use fluent_data::neighbors::*;
+    /// use fluent_data::GetNeighborhood;
     ///
     /// let centers = vec![vec![1., 1.], vec![3.5, -1.6], vec![2.4, 4.], vec![-0.5, 1.]];
     /// let point = &vec![0., 0.];
     /// let nn = centers
     ///     .iter()
     ///     .get_neighborhood(point, space::euclid_dist);
-    /// assert_eq!(
-    ///     Neighborhood(
-    ///         Some(NeighborDist::new(&centers[3], 1.25)),
-    ///         Some(NeighborDist::new(&centers[0], 2.))
-    ///     ),
-    ///     nn
-    /// );
+    /// let closest = nn.0.unwrap();
+    /// let second_closest = nn.1.unwrap();
+    /// assert_eq!(&centers[3], closest.coord());
+    /// assert_eq!(1.25, closest.dist());
+    /// assert_eq!(&centers[0], second_closest.coord());
+    /// assert_eq!(2., second_closest.dist());
     /// ```
     fn get_neighborhood(&mut self, point: &Point, dist: Dist) -> Neighborhood<Model, RefModel>;
 }
@@ -150,7 +144,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::neighbors::*;
+    use crate::neighborhood::*;
     use crate::space;
 
     #[test]

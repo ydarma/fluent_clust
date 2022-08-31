@@ -1,4 +1,6 @@
 pub mod space;
-pub mod neighbors;
+pub mod neighborhood;
 pub mod graph;
 pub mod model;
+
+pub use neighborhood::GetNeighborhood;
