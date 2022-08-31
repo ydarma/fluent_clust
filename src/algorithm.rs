@@ -89,12 +89,13 @@ where
             // candidate is closer than known neighbor: insert candidate
             if (self.dist)(&neighborhood[i].as_data().mu, &current_point) > candidate_dist {
                 neighborhood.insert(i, candidate);
-                // pop furthest known neighbor if more thant max neighbors are known
-                if neighborhood.len() > max_neighbors {
-                    neighborhood.pop();
-                }
                 break;
             }
+        }
+        // TODO: vertex may be merged with its closest neighbor
+        // pop furthest known neighbor if more thant max neighbors are known
+        if neighborhood.len() > max_neighbors {
+            neighborhood.pop();
         }
         neighborhood
     }
@@ -191,13 +192,33 @@ mod tests {
         assert_eq!(vec![13.5, -11.5], second.mu);
         assert_eq!(12.5, second.sigma);
         assert_eq!(1., second.weight);
-        let mut n0 = model.graph[0].iter_neighbors();
-        assert_eq!(second.mu, n0.next().unwrap().as_data().mu);
-        let mut n1 = model.graph[1].iter_neighbors();
-        assert_eq!(first.mu, n1.next().unwrap().as_data().mu);
+    }
+
+    #[test]
+    fn test_neighborhood() {
+        let dataset = build_sample();
+        let algo = Algo::new(space::euclid_dist, space::real_combine);
+        let mut model = Model::new(algo.dist);
+        algo.update(&mut model, dataset[0].clone());
+        algo.update(&mut model, dataset[1].clone());
+        algo.update(&mut model, dataset[2].clone());
+        algo.update(&mut model, dataset[3].clone());
+        let mut components = model.iter_components();
+        let first = components.next().unwrap();
+        let second = components.next().unwrap();
+        let third = components.next().unwrap();
+        let mut n1 = model.graph[0].iter_neighbors();
+        assert_eq!(second.mu, n1.next().unwrap().as_data().mu);
+        assert_eq!(third.mu, n1.next().unwrap().as_data().mu);
+        let mut n2 = model.graph[1].iter_neighbors();
+        assert_eq!(first.mu, n2.next().unwrap().as_data().mu);
+        assert!(n2.next().is_none()); // not up to date for now
+        let mut n3 = model.graph[2].iter_neighbors();
+        assert_eq!(first.mu, n3.next().unwrap().as_data().mu);
+        assert_eq!(second.mu, n3.next().unwrap().as_data().mu);
     }
 
     fn build_sample() -> Vec<Vec<f64>> {
-        vec![vec![5., -1.], vec![1., 1.], vec![11., -9.]]
+        vec![vec![5., -1.], vec![1., 1.], vec![11., -9.], vec![8., 17.]]
     }
 }
