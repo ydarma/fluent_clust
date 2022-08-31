@@ -7,13 +7,13 @@ use crate::{
 
 /// Parameters of a normal component.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct NormalData<Point> {
+pub struct NormalData<Point: PartialEq> {
     pub(crate) mu: Point,
     pub(crate) sigma: f64,
     pub(crate) weight: f64,
 }
 
-impl<Point> NormalData<Point> {
+impl<Point: PartialEq> NormalData<Point> {
     /// Builds a new normal component.
     pub fn new(mu: Point, sigma: f64, weight: f64) -> Self {
         NormalData { mu, sigma, weight }
@@ -38,12 +38,12 @@ impl<Point> NormalData<Point> {
 pub type NormalNode<Point> = Vertex<NormalData<Point>>;
 
 /// Represents a mixed model.
-pub struct Model<Point> {
-    dist: Box<dyn Fn(&Point, &NormalData<Point>) -> f64>,
-    graph: Vec<NormalNode<Point>>,
+pub struct Model<Point: PartialEq> {
+    pub(crate) dist: Box<dyn Fn(&Point, &NormalData<Point>) -> f64>,
+    pub(crate) graph: Vec<NormalNode<Point>>,
 }
 
-impl<Point: 'static> Model<Point> {
+impl<Point: PartialEq + 'static> Model<Point> {
     /// Builds a new model.
     pub fn new<Dist>(space_dist: Dist) -> Self
     where
@@ -100,10 +100,11 @@ impl<Point: 'static> Model<Point> {
         &mut self,
         component: NormalData<Point>,
         neighbors: Vec<Neighbor<NormalData<Point>>>,
-    ) {
-        let i = self.graph.len();
-        self.graph.push(Vertex::new(component));
-        self.graph[i].set_neighbors(neighbors);
+    ) -> NormalNode<Point> {
+        let vertex = Vertex::new(component);
+        vertex.set_neighbors(neighbors);
+        self.graph.push(vertex.clone());
+        vertex
     }
 
     /// Gets an iterator over the model components.
@@ -122,11 +123,11 @@ impl<Point: 'static> Model<Point> {
     }
 }
 
-pub trait GetNeighbors<Point> {
+pub trait GetNeighbors<Point: PartialEq> {
     fn get_neighbors(&self) -> Vec<Neighbor<NormalData<Point>>>;
 }
 
-impl<Point> GetNeighbors<Point> for Vec<NormalNode<Point>> {
+impl<Point: PartialEq> GetNeighbors<Point> for Vec<NormalNode<Point>> {
     fn get_neighbors(&self) -> Vec<Neighbor<NormalData<Point>>> {
         self.iter().map(|n| n.as_neighbor()).collect()
     }

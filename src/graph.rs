@@ -5,28 +5,42 @@ use std::{
 };
 
 /// A vertex of a graph.
-pub struct Vertex<Data> {
+pub struct Vertex<Data: PartialEq> {
     node: Rc<RefCell<Node<Data>>>,
 }
 
-impl<Data> Clone for Vertex<Data> {
+impl<Data: PartialEq> Clone for Vertex<Data> {
     fn clone(&self) -> Self {
-        Self { node: self.node.clone() }
+        Self {
+            node: self.node.clone(),
+        }
+    }
+}
+
+impl<Data: PartialEq> PartialEq for Vertex<Data> {
+    fn eq(&self, other: &Self) -> bool {
+        self.node.eq(&other.node)
     }
 }
 
 /// A vertex neighbor. Neighbors are represented as weak pointers to avoid memory leaks.
-pub struct Neighbor<Data> {
+pub struct Neighbor<Data: PartialEq> {
     target: Weak<RefCell<Node<Data>>>,
 }
 
 /// Vertex internal structure, shared by vertices and neighbors thanks to a smart pointer.
-struct Node<Data> {
+struct Node<Data: PartialEq> {
     data: Data,
     neighbors: Vec<Neighbor<Data>>,
 }
 
-impl<Data> Vertex<Data> {
+impl<Data: PartialEq> PartialEq for Node<Data> {
+    fn eq(&self, other: &Self) -> bool {
+        self.data == other.data
+    }
+}
+
+impl<Data: PartialEq> Vertex<Data> {
     /// Build a new vertex.
     pub fn new(data: Data) -> Vertex<Data> {
         Vertex {
@@ -66,12 +80,12 @@ impl<Data> Vertex<Data> {
 }
 
 /// Iterator over a reference to a `Vec` of neighbors that returns target vertices
-struct NeighborIterator<'a, Data> {
+struct NeighborIterator<'a, Data: PartialEq> {
     curr: usize,
     neighbors: Ref<'a, Vec<Neighbor<Data>>>,
 }
 
-impl<'a, Data> Iterator for NeighborIterator<'a, Data> {
+impl<'a, Data: PartialEq> Iterator for NeighborIterator<'a, Data> {
     type Item = Vertex<Data>;
 
     /// Returns the next vertex.
@@ -90,7 +104,7 @@ impl<'a, Data> Iterator for NeighborIterator<'a, Data> {
     }
 }
 
-impl<'a, Data> NeighborIterator<'a, Data> {
+impl<'a, Data: PartialEq> NeighborIterator<'a, Data> {
     /// Builds a new iterator.
     fn new(neighbors: Ref<'a, Vec<Neighbor<Data>>>) -> Self {
         NeighborIterator { curr: 0, neighbors }
