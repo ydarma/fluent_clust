@@ -35,32 +35,36 @@ where
         let mut iter = neighborhood.iter();
         match iter.next() {
             Some(vertex) => {
-                let maybe_candidate = {
+                let candidate = {
                     let mut closest = vertex.as_data_mut();
                     let d = (self.dist)(&closest.mu, &point);
                     if d < 9. * closest.sigma {
                         self.update_component(&mut closest, point, d);
                         iter.next().map(|v| v.clone())
                     } else {
-                        let component = self.split_component(&closest, &point, d);
+                        let component = self.split_component(&closest, point, d);
                         let vertex = model.add_component(component, neighborhood.get_neighbors());
                         Some(vertex)
                     }
                 };
-                let vertex_neighborhood = match maybe_candidate {
-                    Some(candidate) => {
-                        self.refine_neighborhood(vertex, candidate)
-                    }
-                    None => {
-                      vertex.iter_neighbors().collect()
-                    }
-                };
-                vertex.set_neighbors(vertex_neighborhood.get_neighbors());
+                self.update_neighborhood(vertex, candidate);
             }
             None => {
                 self.init(model, point);
             }
         }
+    }
+
+    fn update_neighborhood(
+        &self,
+        vertex: &NormalNode<Point>,
+        maybe_candidate: Option<NormalNode<Point>>,
+    ) {
+        let vertex_neighborhood = match maybe_candidate {
+            Some(candidate) => self.refine_neighborhood(vertex, candidate),
+            None => vertex.iter_neighbors().collect(),
+        };
+        vertex.set_neighbors(vertex_neighborhood.get_neighbors());
     }
 
     fn refine_neighborhood(
@@ -69,48 +73,40 @@ where
         candidate: NormalNode<Point>,
     ) -> Vec<NormalNode<Point>> {
         let mut neighborhood: Vec<NormalNode<Point>> = vertex.iter_neighbors().collect();
-        if neighborhood.len() == 0 {
-            append(&mut neighborhood, candidate);
-        } else {
-            let current_point = &vertex.as_data().mu;
-            let candidate_dist = (self.dist)(&candidate.as_data().mu, &current_point);
-            if (neighborhood[0]).ne(&candidate) {
-                if self.is_closer(current_point, &neighborhood[0], &candidate, candidate_dist) {
-                    shift(&mut neighborhood, candidate);
-                } else if neighborhood.len() == 1 {
-                    append(&mut neighborhood, candidate);
-                } else if self.is_closer(
-                    current_point,
-                    &neighborhood[1],
-                    &candidate,
-                    candidate_dist,
-                ) {
-                    intersperse(&mut neighborhood, candidate);
+        let current_point = &vertex.as_data().mu;
+        let candidate_dist = (self.dist)(&candidate.as_data().mu, &current_point);
+        let max_neighbors = 2;
+        for i in 0..max_neighbors {
+            // not enough known neighbors: push candidate
+            if i == neighborhood.len() {
+                neighborhood.push(candidate);
+                break;
+            }
+            // candidate is already a known neighbor: keep known neighbors
+            if neighborhood[i].eq(&candidate) {
+                break;
+            }
+            // candidate is closer than known neighbor: insert candidate
+            if (self.dist)(&neighborhood[i].as_data().mu, &current_point) > candidate_dist {
+                neighborhood.insert(i, candidate);
+                // pop furthest known neighbor if more thant max neighbors are known
+                if neighborhood.len() > max_neighbors {
+                    neighborhood.pop();
                 }
+                break;
             }
         }
         neighborhood
     }
 
-    fn is_closer(
-        &self,
-        current_point: &Point,
-        neighbor: &NormalNode<Point>,
-        candidate: &NormalNode<Point>,
-        candidate_dist: f64,
-    ) -> bool {
-        (neighbor).ne(candidate)
-            && (self.dist)(&neighbor.as_data().mu, &current_point) > candidate_dist
-    }
-
     fn split_component(
         &self,
         component: &impl DerefMut<Target = NormalData<Point>>,
-        point: &Point,
+        point: Point,
         d: f64,
     ) -> NormalData<Point> {
         let sigma = d / 16.;
-        let mu = (self.combine)(&component.mu, -1., point, 5.);
+        let mu = (self.combine)(&component.mu, -1., &point, 5.);
         NormalData::new(mu, sigma, 1.)
     }
 
@@ -144,29 +140,6 @@ where
             (component.sigma * component.weight) + dist / (component.weight + 1.)
         }
     }
-}
-
-fn shift<Point: PartialEq>(
-    neighborhood: &mut Vec<NormalNode<Point>>,
-    candidate: NormalNode<Point>,
-) {
-    neighborhood.insert(0, candidate);
-    neighborhood.pop();
-}
-
-fn intersperse<Point: PartialEq>(
-    neighborhood: &mut Vec<NormalNode<Point>>,
-    candidate: NormalNode<Point>,
-) {
-    neighborhood.insert(1, candidate);
-    neighborhood.pop();
-}
-
-fn append<Point: PartialEq>(
-    neighborhood: &mut Vec<NormalNode<Point>>,
-    candidate: NormalNode<Point>,
-) {
-    neighborhood.push(candidate);
 }
 
 #[cfg(test)]
