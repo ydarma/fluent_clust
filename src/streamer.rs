@@ -1,4 +1,4 @@
-use std::{error::Error, ops::Deref};
+use std::{error::Error, ops::Deref, io};
 
 use crate::{
     algorithm::Algo,
@@ -62,6 +62,13 @@ fn serialize_component<Point: PartialEq + Serialize>(
     map.insert("weight".into(), json!(data.weight()));
     map
 }
+
+pub fn stdio() -> (impl Iterator<Item = Result<String, std::io::Error>>, impl FnMut(String)) {
+    let points = io::stdin().lines();
+    let write = |model: String| println!("{}", model);
+    (points, write)
+}
+
 
 #[cfg(test)]
 mod tests {
