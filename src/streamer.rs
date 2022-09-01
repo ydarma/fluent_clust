@@ -1,4 +1,4 @@
-use std::{error::Error, ops::Deref, io};
+use std::{error::Error, io, ops::Deref};
 
 use crate::{
     algorithm::Algo,
@@ -7,6 +7,21 @@ use crate::{
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Map, Value};
 
+/// Reads data form `In` source and write model to `Out` sink.
+/// ```
+/// use std::{error::Error, io};
+/// 
+/// use fluent_data::{algorithm::Algo, model::Model, space, streamer::{Streamer, self}};
+/// 
+/// fn main() -> Result<(), Box<dyn Error>> {
+///     let algo = Algo::new(space::euclid_dist, space::real_combine);
+///     let mut model = Model::new(space::euclid_dist);
+///     let (points, write) = streamer::stdio();
+///     let streamer = Streamer::new(points, write);
+///     Streamer::run(streamer, algo, &mut model)?;
+///     Ok(())
+/// }
+/// ```
 pub struct Streamer<In, Out, Err>
 where
     In: Iterator<Item = Result<String, Err>>,
@@ -22,10 +37,12 @@ where
     Out: FnMut(String),
     Err: Error + 'static,
 {
+    /// builds a new streamer instance.
     pub fn new(points: In, write: Out) -> Self {
         Self { points, write }
     }
 
+    /// Infinitely reads points from `In` source and write model changes to `Out` sink. On error, return `Err`.
     pub fn run<Point: PartialEq + Serialize + DeserializeOwned + 'static>(
         mut streamer: Streamer<In, Out, Err>,
         algo: Algo<Point>,
@@ -63,12 +80,14 @@ fn serialize_component<Point: PartialEq + Serialize>(
     map
 }
 
-pub fn stdio() -> (impl Iterator<Item = Result<String, std::io::Error>>, impl FnMut(String)) {
+pub fn stdio() -> (
+    impl Iterator<Item = Result<String, std::io::Error>>,
+    impl FnMut(String),
+) {
     let points = io::stdin().lines();
     let write = |model: String| println!("{}", model);
     (points, write)
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -81,9 +100,9 @@ mod tests {
 
     #[test]
     fn test_serialize_component() {
-      let obj = serialize_component(&NormalData::new(vec![3., 5.1], 4.7, 0.999));
-      let json = serde_json::to_string(&obj).unwrap();
-      assert_eq!(r#"{"mu":[3.0,5.1],"sigma":4.7,"weight":0.999}"#, json);
+        let obj = serialize_component(&NormalData::new(vec![3., 5.1], 4.7, 0.999));
+        let json = serde_json::to_string(&obj).unwrap();
+        assert_eq!(r#"{"mu":[3.0,5.1],"sigma":4.7,"weight":0.999}"#, json);
     }
 
     #[test]
