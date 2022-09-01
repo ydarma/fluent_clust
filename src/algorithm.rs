@@ -2,6 +2,10 @@ use std::{marker::PhantomData, ops::DerefMut};
 
 use crate::model::{GetNeighbors, Model, NormalData, NormalNode};
 
+const EXTRA_FACTOR: f64 = 16.;
+const INTRA_FACTOR: f64 = 9.;
+const MERGE_FACTOR: f64 = 1.;
+
 pub struct Algo<Point: PartialEq + 'static, Dist, Combine>
 where
     Dist: Fn(&Point, &Point) -> f64,
@@ -25,33 +29,82 @@ where
         }
     }
 
+    pub fn fit<'a>(&'a self, model: &'a mut Model<Point>, point: Point) {
+        let neighborhood = model.get_neighborhood(&point);
+        match neighborhood.first() {
+            None => {
+                self.init(model, point);
+            }
+            Some(vertex) => {
+                let candidate = self.update(model, vertex, point, &neighborhood);
+                self.update_neighborhood(vertex, candidate);
+            }
+        }
+    }
+
     fn init(&self, model: &mut Model<Point>, point: Point) {
         let component = NormalData::new(point, f64::INFINITY, 0.);
         model.add_component(component, vec![]);
     }
 
-    pub fn update<'a>(&'a self, model: &'a mut Model<Point>, point: Point) {
-        let neighborhood = model.get_neighborhood(&point);
-        let mut iter = neighborhood.iter();
-        match iter.next() {
-            Some(vertex) => {
-                let candidate = {
-                    let mut closest = vertex.as_data_mut();
-                    let d = (self.dist)(&closest.mu, &point);
-                    if d < 9. * closest.sigma {
-                        self.update_component(&mut closest, point, d);
-                        iter.next().map(|v| v.clone())
-                    } else {
-                        let component = self.split_component(&closest, point, d);
-                        let vertex = model.add_component(component, neighborhood.get_neighbors());
-                        Some(vertex)
-                    }
-                };
-                self.update_neighborhood(vertex, candidate);
-            }
-            None => {
-                self.init(model, point);
-            }
+    fn update(
+        &self,
+        model: &mut Model<Point>,
+        vertex: &NormalNode<Point>,
+        point: Point,
+        neighborhood: &Vec<NormalNode<Point>>,
+    ) -> Option<crate::graph::Vertex<NormalData<Point>>> {
+        let mut closest = vertex.as_data_mut();
+        let d = (self.dist)(&closest.mu, &point);
+        if d < INTRA_FACTOR * closest.sigma {
+            self.update_component(&mut closest, point, d);
+            neighborhood.get(1).map(|v| v.clone())
+        } else {
+            let component = self.split_component(&closest, point, d);
+            let vertex = model.add_component(component, neighborhood.get_neighbors());
+            Some(vertex)
+        }
+    }
+
+    fn split_component(
+        &self,
+        component: &impl DerefMut<Target = NormalData<Point>>,
+        point: Point,
+        d: f64,
+    ) -> NormalData<Point> {
+        let sigma = d / EXTRA_FACTOR;
+        let mu = (self.combine)(&component.mu, -1., &point, 5.);
+        NormalData::new(mu, sigma, 1.)
+    }
+
+    fn update_component(
+        &self,
+        component: &mut impl DerefMut<Target = NormalData<Point>>,
+        point: Point,
+        dist: f64,
+    ) {
+        component.mu = self.update_mu(component, point);
+        component.sigma = self.update_sigma(component, dist);
+        component.weight += 1.;
+    }
+
+    fn update_mu(
+        &self,
+        component: &impl DerefMut<Target = NormalData<Point>>,
+        point: Point,
+    ) -> Point {
+        (self.combine)(&component.mu, component.weight, &point, 1.)
+    }
+
+    fn update_sigma(
+        &self,
+        component: &impl DerefMut<Target = NormalData<Point>>,
+        dist: f64,
+    ) -> f64 {
+        if component.weight == 0. {
+            dist
+        } else {
+            (component.sigma * component.weight) + dist / (component.weight + 1.)
         }
     }
 
@@ -99,48 +152,6 @@ where
         }
         neighborhood
     }
-
-    fn split_component(
-        &self,
-        component: &impl DerefMut<Target = NormalData<Point>>,
-        point: Point,
-        d: f64,
-    ) -> NormalData<Point> {
-        let sigma = d / 16.;
-        let mu = (self.combine)(&component.mu, -1., &point, 5.);
-        NormalData::new(mu, sigma, 1.)
-    }
-
-    fn update_component(
-        &self,
-        component: &mut impl DerefMut<Target = NormalData<Point>>,
-        point: Point,
-        dist: f64,
-    ) {
-        component.mu = self.update_mu(component, point);
-        component.sigma = self.update_sigma(component, dist);
-        component.weight += 1.;
-    }
-
-    fn update_mu(
-        &self,
-        component: &impl DerefMut<Target = NormalData<Point>>,
-        point: Point,
-    ) -> Point {
-        (self.combine)(&component.mu, component.weight, &point, 1.)
-    }
-
-    fn update_sigma(
-        &self,
-        component: &impl DerefMut<Target = NormalData<Point>>,
-        dist: f64,
-    ) -> f64 {
-        if component.weight == 0. {
-            dist
-        } else {
-            (component.sigma * component.weight) + dist / (component.weight + 1.)
-        }
-    }
 }
 
 #[cfg(test)]
@@ -153,7 +164,7 @@ mod tests {
         let dataset = build_sample();
         let algo = Algo::new(space::euclid_dist, space::real_combine);
         let mut model = Model::new(algo.dist);
-        algo.update(&mut model, dataset[0].clone());
+        algo.fit(&mut model, dataset[0].clone());
         let mut components = model.iter_components();
         let first = components.next().unwrap();
         assert_eq!(dataset[0], first.mu);
@@ -166,8 +177,8 @@ mod tests {
         let dataset = build_sample();
         let algo = Algo::new(space::euclid_dist, space::real_combine);
         let mut model = Model::new(algo.dist);
-        algo.update(&mut model, dataset[0].clone());
-        algo.update(&mut model, dataset[1].clone());
+        algo.fit(&mut model, dataset[0].clone());
+        algo.fit(&mut model, dataset[1].clone());
         let mut components = model.iter_components();
         let first = components.next().unwrap();
         assert_eq!(dataset[1], first.mu);
@@ -180,9 +191,9 @@ mod tests {
         let dataset = build_sample();
         let algo = Algo::new(space::euclid_dist, space::real_combine);
         let mut model = Model::new(algo.dist);
-        algo.update(&mut model, dataset[0].clone());
-        algo.update(&mut model, dataset[1].clone());
-        algo.update(&mut model, dataset[2].clone());
+        algo.fit(&mut model, dataset[0].clone());
+        algo.fit(&mut model, dataset[1].clone());
+        algo.fit(&mut model, dataset[2].clone());
         let mut components = model.iter_components();
         let first = components.next().unwrap();
         assert_eq!(dataset[1], first.mu);
@@ -199,10 +210,10 @@ mod tests {
         let dataset = build_sample();
         let algo = Algo::new(space::euclid_dist, space::real_combine);
         let mut model = Model::new(algo.dist);
-        algo.update(&mut model, dataset[0].clone());
-        algo.update(&mut model, dataset[1].clone());
-        algo.update(&mut model, dataset[2].clone());
-        algo.update(&mut model, dataset[3].clone());
+        algo.fit(&mut model, dataset[0].clone());
+        algo.fit(&mut model, dataset[1].clone());
+        algo.fit(&mut model, dataset[2].clone());
+        algo.fit(&mut model, dataset[3].clone());
         let mut components = model.iter_components();
         let first = components.next().unwrap();
         let second = components.next().unwrap();
