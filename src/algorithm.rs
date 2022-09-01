@@ -161,10 +161,7 @@ mod tests {
 
     #[test]
     fn test_init() {
-        let dataset = build_sample();
-        let algo = Algo::new(space::euclid_dist, space::real_combine);
-        let mut model = Model::new(algo.dist);
-        algo.fit(&mut model, dataset[0].clone());
+        let (dataset, model) = build_model(1);
         let mut components = model.iter_components();
         let first = components.next().unwrap();
         assert_eq!(dataset[0], first.mu);
@@ -174,11 +171,7 @@ mod tests {
 
     #[test]
     fn test_merge() {
-        let dataset = build_sample();
-        let algo = Algo::new(space::euclid_dist, space::real_combine);
-        let mut model = Model::new(algo.dist);
-        algo.fit(&mut model, dataset[0].clone());
-        algo.fit(&mut model, dataset[1].clone());
+        let (dataset, model) = build_model(2);
         let mut components = model.iter_components();
         let first = components.next().unwrap();
         assert_eq!(dataset[1], first.mu);
@@ -188,12 +181,7 @@ mod tests {
 
     #[test]
     fn test_new() {
-        let dataset = build_sample();
-        let algo = Algo::new(space::euclid_dist, space::real_combine);
-        let mut model = Model::new(algo.dist);
-        algo.fit(&mut model, dataset[0].clone());
-        algo.fit(&mut model, dataset[1].clone());
-        algo.fit(&mut model, dataset[2].clone());
+        let (dataset, model) = build_model(3);
         let mut components = model.iter_components();
         let first = components.next().unwrap();
         assert_eq!(dataset[1], first.mu);
@@ -207,13 +195,7 @@ mod tests {
 
     #[test]
     fn test_neighborhood() {
-        let dataset = build_sample();
-        let algo = Algo::new(space::euclid_dist, space::real_combine);
-        let mut model = Model::new(algo.dist);
-        algo.fit(&mut model, dataset[0].clone());
-        algo.fit(&mut model, dataset[1].clone());
-        algo.fit(&mut model, dataset[2].clone());
-        algo.fit(&mut model, dataset[3].clone());
+        let (_dataset, model) = build_model(4);
         let mut components = model.iter_components();
         let first = components.next().unwrap();
         let second = components.next().unwrap();
@@ -229,7 +211,19 @@ mod tests {
         assert_eq!(second.mu, n3.next().unwrap().as_data().mu);
     }
 
-    fn build_sample() -> Vec<Vec<f64>> {
-        vec![vec![5., -1.], vec![1., 1.], vec![11., -9.], vec![8., 17.]]
+    fn build_model(count: usize) -> (Vec<Vec<f64>>, Model<Vec<f64>>) {
+        let dataset = build_sample(count);
+        let algo = Algo::new(space::euclid_dist, space::real_combine);
+        let mut model = Model::new(algo.dist);
+        for i in 0..count {
+            algo.fit(&mut model, dataset[i].clone());
+        }
+        (dataset, model)
+    }
+
+    fn build_sample(count: usize) -> Vec<Vec<f64>> {
+        let mut dataset = vec![vec![5., -1.], vec![1., 1.], vec![11., -9.], vec![8., 17.]];
+        dataset.truncate(count);
+        dataset
     }
 }
