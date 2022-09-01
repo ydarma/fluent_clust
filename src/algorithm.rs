@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, ops::DerefMut};
+use std::{marker::PhantomData, ops::DerefMut, fmt::Debug};
 
 use crate::model::{GetNeighbors, Model, NormalData, NormalNode};
 
@@ -6,7 +6,7 @@ const EXTRA_FACTOR: f64 = 16.;
 const INTRA_FACTOR: f64 = 9.;
 const MERGE_FACTOR: f64 = 1.;
 
-pub struct Algo<Point: PartialEq + 'static, Dist, Combine>
+pub struct Algo<Point: Debug + PartialEq + 'static, Dist, Combine>
 where
     Dist: Fn(&Point, &Point) -> f64,
     Combine: Fn(&Point, f64, &Point, f64) -> Point,
@@ -16,7 +16,7 @@ where
     phantom: PhantomData<Point>,
 }
 
-impl<Point: PartialEq + 'static, Dist, Combine> Algo<Point, Dist, Combine>
+impl<Point: Debug + PartialEq + 'static, Dist, Combine> Algo<Point, Dist, Combine>
 where
     Dist: Fn(&Point, &Point) -> f64,
     Combine: Fn(&Point, f64, &Point, f64) -> Point,
@@ -113,11 +113,13 @@ where
         vertex: &NormalNode<Point>,
         maybe_candidate: Option<NormalNode<Point>>,
     ) {
-        let vertex_neighborhood = match maybe_candidate {
-            Some(candidate) => self.refine_neighborhood(vertex, candidate),
-            None => vertex.iter_neighbors().collect(),
+        match maybe_candidate {
+            Some(candidate) => {
+                let vertex_neighborhood = self.refine_neighborhood(vertex, candidate);
+                vertex.set_neighbors(vertex_neighborhood.get_neighbors());
+            }
+            None => {}
         };
-        vertex.set_neighbors(vertex_neighborhood.get_neighbors());
     }
 
     fn refine_neighborhood(
@@ -170,7 +172,7 @@ mod tests {
     }
 
     #[test]
-    fn test_merge() {
+    fn test_update() {
         let (dataset, model) = build_model(2);
         let mut components = model.iter_components();
         let first = components.next().unwrap();
@@ -194,7 +196,21 @@ mod tests {
     }
 
     #[test]
-    fn test_neighborhood() {
+    fn test_neighborhood_init() {
+        let (_dataset, model) = build_model(3);
+        let mut components = model.iter_components();
+        let first = components.next().unwrap();
+        let second = components.next().unwrap();
+        let mut n1 = model.graph[0].iter_neighbors();
+        assert_eq!(second.mu, n1.next().unwrap().as_data().mu);
+        assert!(n1.next().is_none());
+        let mut n2 = model.graph[1].iter_neighbors();
+        assert_eq!(first.mu, n2.next().unwrap().as_data().mu);
+        assert!(n2.next().is_none());
+    }
+
+    #[test]
+    fn test_neighborhood_refine_append() {
         let (_dataset, model) = build_model(4);
         let mut components = model.iter_components();
         let first = components.next().unwrap();
@@ -202,7 +218,7 @@ mod tests {
         let third = components.next().unwrap();
         let mut n1 = model.graph[0].iter_neighbors();
         assert_eq!(second.mu, n1.next().unwrap().as_data().mu);
-        assert_eq!(third.mu, n1.next().unwrap().as_data().mu);
+        assert_eq!(third.mu, n1.next().unwrap().as_data().mu); // appended during refinement
         let mut n2 = model.graph[1].iter_neighbors();
         assert_eq!(first.mu, n2.next().unwrap().as_data().mu);
         assert!(n2.next().is_none()); // not up to date for now
@@ -211,8 +227,27 @@ mod tests {
         assert_eq!(second.mu, n3.next().unwrap().as_data().mu);
     }
 
+    #[test]
+    fn test_neighborhood_refine_prepend() {
+        let (_dataset, model) = build_model(5);
+        let mut components = model.iter_components();
+        let first = components.next().unwrap();
+        let second = components.next().unwrap();
+        let third = components.next().unwrap();
+        let fourth = components.next().unwrap();
+        let mut n1 = model.graph[0].iter_neighbors();
+        assert_eq!(second.mu, n1.next().unwrap().as_data().mu);
+        assert_eq!(third.mu, n1.next().unwrap().as_data().mu);
+        let mut n2 = model.graph[1].iter_neighbors();
+        assert_eq!(fourth.mu, n2.next().unwrap().as_data().mu); // prepended during refinement
+        assert_eq!(first.mu, n2.next().unwrap().as_data().mu);
+        let mut n3 = model.graph[2].iter_neighbors();
+        assert_eq!(first.mu, n3.next().unwrap().as_data().mu);
+        assert_eq!(second.mu, n3.next().unwrap().as_data().mu);
+    }
+
     fn build_model(count: usize) -> (Vec<Vec<f64>>, Model<Vec<f64>>) {
-        let dataset = build_sample(count);
+        let dataset = build_sample();
         let algo = Algo::new(space::euclid_dist, space::real_combine);
         let mut model = Model::new(algo.dist);
         for i in 0..count {
@@ -221,9 +256,14 @@ mod tests {
         (dataset, model)
     }
 
-    fn build_sample(count: usize) -> Vec<Vec<f64>> {
-        let mut dataset = vec![vec![5., -1.], vec![1., 1.], vec![11., -9.], vec![8., 17.]];
-        dataset.truncate(count);
-        dataset
+    fn build_sample() -> Vec<Vec<f64>> {
+        vec![
+            vec![5., -1.],
+            vec![1., 1.],
+            vec![11., -9.],
+            vec![8., 17.],
+            vec![20., -3.],
+            vec![8., -8.],
+        ]
     }
 }
