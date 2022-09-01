@@ -1,4 +1,4 @@
-use std::{fmt::Debug, marker::PhantomData, ops::DerefMut};
+use std::{marker::PhantomData, ops::DerefMut};
 
 use crate::model::{GetNeighbors, Model, NormalData, NormalNode};
 
@@ -13,26 +13,22 @@ const MAX_NEIGHBORS: usize = 2;
 /// The algorithm can fit any kind of points in a space that:
 ///  - defines the distance between two points,
 ///  - defines the weighted center of two points.
-pub struct Algo<Point: Debug + PartialEq + 'static, Dist, Combine>
-where
-    Dist: Fn(&Point, &Point) -> f64,
-    Combine: Fn(&Point, f64, &Point, f64) -> Point,
-{
-    dist: Dist,
-    combine: Combine,
+pub struct Algo<Point: PartialEq + 'static> {
+    dist: Box<dyn Fn(&Point, &Point) -> f64>,
+    combine: Box<dyn Fn(&Point, f64, &Point, f64) -> Point>,
     phantom: PhantomData<Point>,
 }
 
-impl<Point: Debug + PartialEq + 'static, Dist, Combine> Algo<Point, Dist, Combine>
-where
-    Dist: Fn(&Point, &Point) -> f64,
-    Combine: Fn(&Point, f64, &Point, f64) -> Point,
-{
+impl<Point: PartialEq + 'static> Algo<Point> {
     /// Creates a new algorithm for the given distance and combination functions.
-    pub fn new(dist: Dist, combine: Combine) -> Self {
+    pub fn new<Dist, Combine>(dist: Dist, combine: Combine) -> Self
+    where
+        Dist: Fn(&Point, &Point) -> f64 + 'static,
+        Combine: Fn(&Point, f64, &Point, f64) -> Point + 'static,
+    {
         Self {
-            dist,
-            combine,
+            dist: Box::new(dist),
+            combine: Box::new(combine),
             phantom: PhantomData,
         }
     }
@@ -41,7 +37,7 @@ where
     pub fn fit<'a>(&'a self, model: &'a mut Model<Point>, point: Point) {
         let neighborhood = model.get_neighborhood(&point);
         match neighborhood.first() {
-            None => {
+            None =>  {
                 self.init(model, point);
             }
             Some(candidate) => {
@@ -189,11 +185,7 @@ where
     }
 
     /// Decides if two components are close enough to merge.
-    fn should_merge(
-        &self,
-        first: &NormalNode<Point>,
-        second: &NormalNode<Point>,
-    ) -> (bool, f64) {
+    fn should_merge(&self, first: &NormalNode<Point>, second: &NormalNode<Point>) -> (bool, f64) {
         let current_data = first.as_data();
         let neighbor_data = second.as_data();
         let d = (self.dist)(&current_data.mu, &neighbor_data.mu);
@@ -347,7 +339,7 @@ mod tests {
     fn build_model(count: usize) -> (Vec<Vec<f64>>, Model<Vec<f64>>) {
         let dataset = build_sample();
         let algo = Algo::new(space::euclid_dist, space::real_combine);
-        let mut model = Model::new(algo.dist);
+        let mut model = Model::new(space::euclid_dist);
         for i in 0..count {
             algo.fit(&mut model, dataset[i].clone());
         }
