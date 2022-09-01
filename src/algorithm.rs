@@ -13,6 +13,31 @@ const MAX_NEIGHBORS: usize = 2;
 /// The algorithm can fit any kind of points in a space that:
 ///  - defines the distance between two points,
 ///  - defines the weighted center of two points.
+///  ```
+/// use fluent_data::algorithm::Algo;
+/// use fluent_data::model::Model;
+/// use fluent_data::space;
+///
+/// let dataset = vec![
+///         vec![5., -1.],
+///         vec![1., 1.],
+///         vec![11., -9.],
+///     ];
+/// let algo = Algo::new(space::euclid_dist, space::real_combine);
+/// let mut model = Model::new(space::euclid_dist);
+/// for i in 0..3 {
+///     algo.fit(&mut model, dataset[i].clone());
+/// }
+/// let mut components = model.iter_components();
+/// let first = components.next().unwrap();
+/// assert_eq!(&dataset[1], first.mu());
+/// assert_eq!(20., first.sigma());
+/// assert_eq!(0.999, first.weight());
+/// let second = components.next().unwrap();
+/// assert_eq!(&vec![13.5, -11.5], second.mu());
+/// assert_eq!(12.5, second.sigma());
+/// assert_eq!(1., second.weight());
+/// ```
 pub struct Algo<Point: PartialEq + 'static> {
     dist: Box<dyn Fn(&Point, &Point) -> f64>,
     combine: Box<dyn Fn(&Point, f64, &Point, f64) -> Point>,
