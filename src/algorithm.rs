@@ -1,10 +1,13 @@
-use std::{marker::PhantomData, ops::DerefMut, fmt::Debug};
+use std::{fmt::Debug, marker::PhantomData, ops::DerefMut};
 
 use crate::model::{GetNeighbors, Model, NormalData, NormalNode};
 
 const EXTRA_FACTOR: f64 = 16.;
 const INTRA_FACTOR: f64 = 9.;
 const MERGE_FACTOR: f64 = 1.;
+const DECAY_FACTOR: f64 = 0.999;
+const DECAY_THRESHOLD: f64 = 0.01;
+const MAX_NEIGHBORS: usize = 2;
 
 pub struct Algo<Point: Debug + PartialEq + 'static, Dist, Combine>
 where
@@ -38,6 +41,11 @@ where
             Some(vertex) => {
                 let candidate = self.update(model, vertex, point, &neighborhood);
                 self.update_neighborhood(vertex, candidate);
+                vertex.as_data_mut().weight /= DECAY_FACTOR;
+                model.iter_components_mut(|v| {
+                    v.weight *= DECAY_FACTOR;
+                    v.weight > DECAY_THRESHOLD
+                })
             }
         }
     }
@@ -104,7 +112,7 @@ where
         if component.weight == 0. {
             dist
         } else {
-            (component.sigma * component.weight) + dist / (component.weight + 1.)
+            (component.sigma * component.weight + dist) / (component.weight + 1.)
         }
     }
 
@@ -115,23 +123,31 @@ where
     ) {
         match maybe_candidate {
             Some(candidate) => {
-                let vertex_neighborhood = self.refine_neighborhood(vertex, candidate);
-                vertex.set_neighbors(vertex_neighborhood.get_neighbors());
+                self.rebuild(vertex, candidate);
             }
             None => {}
         };
     }
 
-    fn refine_neighborhood(
+    fn rebuild(&self, vertex: &NormalNode<Point>, candidate: NormalNode<Point>) {
+        let neighborhood: Vec<NormalNode<Point>> = vertex.iter_neighbors().collect();
+        let neighborhood = self.rebuild_neighborhood(vertex, neighborhood, candidate);
+        let mut neighborhood = self.rebuild_merge(vertex, neighborhood);
+        if neighborhood.len() > MAX_NEIGHBORS {
+            neighborhood.pop();
+        }
+        vertex.set_neighbors(neighborhood.get_neighbors());
+    }
+
+    fn rebuild_neighborhood(
         &self,
         vertex: &NormalNode<Point>,
+        mut neighborhood: Vec<NormalNode<Point>>,
         candidate: NormalNode<Point>,
     ) -> Vec<NormalNode<Point>> {
-        let mut neighborhood: Vec<NormalNode<Point>> = vertex.iter_neighbors().collect();
         let current_point = &vertex.as_data().mu;
         let candidate_dist = (self.dist)(&candidate.as_data().mu, &current_point);
-        let max_neighbors = 2;
-        for i in 0..max_neighbors {
+        for i in 0..MAX_NEIGHBORS {
             // not enough known neighbors: push candidate
             if i == neighborhood.len() {
                 neighborhood.push(candidate);
@@ -147,12 +163,49 @@ where
                 break;
             }
         }
-        // TODO: vertex may be merged with its closest neighbor
-        // pop furthest known neighbor if more thant max neighbors are known
-        if neighborhood.len() > max_neighbors {
-            neighborhood.pop();
+        neighborhood
+    }
+
+    fn rebuild_merge(
+        &self,
+        vertex: &NormalNode<Point>,
+        mut neighborhood: Vec<NormalNode<Point>>,
+    ) -> Vec<NormalNode<Point>> {
+        let (should_merge, d) = self.should_merge(vertex, &neighborhood[0]);
+        if should_merge {
+            self.merge_components(vertex, &neighborhood[0], d);
+            neighborhood.remove(0);
         }
         neighborhood
+    }
+
+    fn should_merge(
+        &self,
+        vertex: &NormalNode<Point>,
+        neighbor: &NormalNode<Point>,
+    ) -> (bool, f64) {
+        let current_data = vertex.as_data();
+        let neighbor_data = neighbor.as_data();
+        let d = (self.dist)(&current_data.mu, &neighbor_data.mu);
+        let should_merge = d < (current_data.sigma + neighbor_data.sigma) * MERGE_FACTOR;
+        (should_merge, d)
+    }
+
+    fn merge_components(&self, vertex: &NormalNode<Point>, neighbor: &NormalNode<Point>, d: f64) {
+        let mut current_data = vertex.as_data_mut();
+        let mut neighbor_data = neighbor.as_data_mut();
+        current_data.mu = (self.combine)(
+            &current_data.mu,
+            current_data.weight,
+            &neighbor_data.mu,
+            neighbor_data.weight,
+        );
+        current_data.sigma = d
+            + (current_data.sigma * current_data.weight
+                + neighbor_data.sigma * neighbor_data.weight)
+                / (current_data.weight + neighbor_data.weight);
+        current_data.weight = current_data.weight + neighbor_data.weight;
+        neighbor_data.weight = 0.;
     }
 }
 
@@ -192,7 +245,7 @@ mod tests {
         let second = components.next().unwrap();
         assert_eq!(vec![13.5, -11.5], second.mu);
         assert_eq!(12.5, second.sigma);
-        assert_eq!(1., second.weight);
+        assert_eq!(DECAY_FACTOR, second.weight);
     }
 
     #[test]
@@ -246,6 +299,28 @@ mod tests {
         assert_eq!(second.mu, n3.next().unwrap().as_data().mu);
     }
 
+    #[test]
+    fn test_merge() {
+        let (_dataset, model) = build_model(37);
+        let mut components = model.iter_components();
+        let first = components.next().unwrap();
+        let second = components.next().unwrap();
+        let third = components.next().unwrap();
+        assert!(components.next().is_none());
+        assert!(first.weight > 30.);
+        assert!(second.weight < 1.);
+        assert!(third.weight < 1.);
+        assert!(first.mu[0] < 6.);
+        assert!(first.mu[1] < -2.);
+        assert!(second.mu[0] > 6.);
+        assert!(second.mu[1] > -2.);
+        assert!(third.mu[0] > 6.);
+        assert!(third.mu[1] > -2.);
+        let mut n1 = model.graph[0].iter_neighbors();
+        assert_eq!(third.mu, n1.next().unwrap().as_data().mu);
+        assert!(n1.next().is_none());
+    }
+
     fn build_model(count: usize) -> (Vec<Vec<f64>>, Model<Vec<f64>>) {
         let dataset = build_sample();
         let algo = Algo::new(space::euclid_dist, space::real_combine);
@@ -264,6 +339,37 @@ mod tests {
             vec![8., 17.],
             vec![20., -3.],
             vec![8., -8.],
+            vec![5., -4.],
+            vec![4., -6.],
+            vec![7., -6.],
+            vec![3., -5.],
+            vec![5., -6.],
+            vec![5., -6.],
+            vec![5., -5.],
+            vec![3., -4.],
+            vec![3., -3.],
+            vec![5., -5.],
+            vec![5., -4.],
+            vec![7., -6.],
+            vec![6., -5.],
+            vec![6., -4.],
+            vec![5., -3.],
+            vec![3., -4.],
+            vec![4., -5.],
+            vec![4., -4.],
+            vec![6., -6.],
+            vec![5., -4.],
+            vec![4., -6.],
+            vec![7., -6.],
+            vec![2., -2.],
+            vec![3., -3.],
+            vec![6., -5.],
+            vec![6., -4.],
+            vec![4., -5.],
+            vec![4., -4.],
+            vec![4., -3.],
+            vec![4., -3.],
+            vec![6., -6.],
         ]
     }
 }
