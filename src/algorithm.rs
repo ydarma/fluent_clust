@@ -225,7 +225,7 @@ impl<Point: PartialEq + 'static> Algo<Point> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use crate::algorithm::*;
     use crate::space;
 
@@ -346,7 +346,7 @@ mod tests {
         (dataset, model)
     }
 
-    fn build_sample() -> Vec<Vec<f64>> {
+    pub(crate) fn build_sample() -> Vec<Vec<f64>> {
         vec![
             vec![5., -1.],
             vec![1., 1.],

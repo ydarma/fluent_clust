@@ -1,29 +1,33 @@
 use std::{error::Error, ops::Deref};
 
-use crate::{algorithm::Algo, model::{Model, NormalData}};
+use crate::{
+    algorithm::Algo,
+    model::{Model, NormalData},
+};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Map, Value};
 
-pub struct Streamer<In, Out>
+pub struct Streamer<In, Out, Err>
 where
-    In: Iterator<Item = Result<String, std::io::Error>>,
-    Out: Fn(String),
+    In: Iterator<Item = Result<String, Err>>,
+    Out: FnMut(String),
 {
     points: In,
     write: Out,
 }
 
-impl<In, Out> Streamer<In, Out>
+impl<In, Out, Err> Streamer<In, Out, Err>
 where
-    In: Iterator<Item = Result<String, std::io::Error>>,
-    Out: Fn(String),
+    In: Iterator<Item = Result<String, Err>>,
+    Out: FnMut(String),
+    Err: Error + 'static,
 {
     pub fn new(points: In, write: Out) -> Self {
         Self { points, write }
     }
 
     pub fn run<Point: PartialEq + Serialize + DeserializeOwned + 'static>(
-        streamer: Streamer<In, Out>,
+        mut streamer: Streamer<In, Out, Err>,
         algo: Algo<Point>,
         model: &mut Model<Point>,
     ) -> Result<(), Box<dyn Error>> {
@@ -57,4 +61,43 @@ fn serialize_component<Point: PartialEq + Serialize>(
     map.insert("sigma".into(), json!(data.sigma()));
     map.insert("weight".into(), json!(data.weight()));
     map
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::algorithm::tests::build_sample;
+    use crate::{space, streamer::*};
+    use regex::Regex;
+
+    const OUT_PATTERN: &str =
+        r#"^\[(\{"mu":\[[-0-9.]*,[-0-9.]*\],"sigma":(null|[0-9.]*),"weight":[0-9.]*\},?)*\]$"#;
+
+    #[test]
+    fn test_serialize_component() {
+      let obj = serialize_component(&NormalData::new(vec![3., 5.1], 4.7, 0.999));
+      let json = serde_json::to_string(&obj).unwrap();
+      assert_eq!(r#"{"mu":[3.0,5.1],"sigma":4.7,"weight":0.999}"#, json);
+    }
+
+    #[test]
+    fn test_streamer() {
+        let algo = Algo::new(space::euclid_dist, space::real_combine);
+        let mut model = Model::new(space::euclid_dist);
+        let dataset = build_sample();
+        let points = dataset
+            .iter()
+            .map(|v| -> Result<String, std::io::Error> { Ok(json!(v).to_string()) });
+        let mut result: Vec<String> = vec![];
+        let write = |model: String| result.push(model);
+        let streamer = Streamer::new(points, write);
+        match Streamer::run(streamer, algo, &mut model) {
+            Ok(()) => {
+                let re = Regex::new(OUT_PATTERN).unwrap();
+                assert!(result.iter().all(|r| re.is_match(r)));
+            }
+            Err(_) => {
+                assert!(false)
+            }
+        };
+    }
 }
