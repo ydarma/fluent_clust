@@ -37,7 +37,7 @@ impl<Point: PartialEq> NormalData<Point> {
 
 pub type NormalNode<Point> = Vertex<NormalData<Point>>;
 
-/// Represents a mixed model.
+/// Represents a mixed normal model.
 pub struct Model<Point: PartialEq> {
     pub(crate) dist: Box<dyn Fn(&Point, &NormalData<Point>) -> f64>,
     pub(crate) graph: Vec<NormalNode<Point>>,
@@ -96,7 +96,7 @@ impl<Point: PartialEq + 'static> Model<Point> {
     /// Add a new component to the mixed model.
     /// Components neighbors are generally already known,
     /// thus in order to avoid unecessary calls to `Self.get_neighborhood` they are also passed.
-    pub fn add_component(
+    pub(crate) fn add_component(
         &mut self,
         component: NormalData<Point>,
         neighbors: Vec<Neighbor<NormalData<Point>>>,
@@ -115,7 +115,7 @@ impl<Point: PartialEq + 'static> Model<Point> {
     }
 
     /// Mutate the model components in sequence. The closure should return `true` to retain the components or `false` to discard it.
-    pub fn iter_components_mut<F>(&mut self, mut f: F)
+    pub(crate) fn iter_components_mut<F>(&mut self, mut f: F)
     where
         F: FnMut(&mut NormalData<Point>) -> bool,
     {
