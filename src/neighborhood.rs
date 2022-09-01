@@ -15,7 +15,8 @@ where
         &self.0
     }
 
-    /// The distance to some other `Point`
+    /// The distance to some other `Point`. Used for testing.
+    #[allow(unused)]
     pub fn dist(&self) -> f64 {
         self.1
     }
@@ -39,22 +40,6 @@ where
     RefModel: Deref<Target = Model>,
 {
     /// Get the two nearest neighbors, ordered by their distance from the given point.
-    /// ```
-    /// use fluent_data::space;
-    /// use fluent_data::GetNeighborhood;
-    ///
-    /// let centers = vec![vec![1., 1.], vec![3.5, -1.6], vec![2.4, 4.], vec![-0.5, 1.]];
-    /// let point = &vec![0., 0.];
-    /// let nn = centers
-    ///     .iter()
-    ///     .get_neighborhood(point, space::euclid_dist);
-    /// let closest = nn.0.unwrap();
-    /// let second_closest = nn.1.unwrap();
-    /// assert_eq!(&centers[3], closest.coord());
-    /// assert_eq!(1.25, closest.dist());
-    /// assert_eq!(&centers[0], second_closest.coord());
-    /// assert_eq!(2., second_closest.dist());
-    /// ```
     fn get_neighborhood(&mut self, point: &Point, dist: Dist) -> Neighborhood<Model, RefModel>;
 }
 

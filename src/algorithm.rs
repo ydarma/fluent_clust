@@ -44,9 +44,10 @@ where
             None => {
                 self.init(model, point);
             }
-            Some(vertex) => {
-                if let Some(maybe_neighbor) = self.update(model, vertex, point, &neighborhood) {
-                    self.update_local_graph(vertex, maybe_neighbor);
+            Some(candidate) => {
+                let(vertex, maybe_neighbor) = self.update(model, candidate, point, &neighborhood);
+                if let Some(maybe_neighbor) = maybe_neighbor {
+                    self.update_local_graph(candidate, maybe_neighbor);
                 };
                 self.decay(model, vertex);
             }
@@ -56,9 +57,9 @@ where
     /// Initializes the model for the first incoming point.
     /// It creates a first components with an infinite variance and a zero weight.
     /// The second point will be merged into this component and the variance updated to the distance between the two points.
-    fn init(&self, model: &mut Model<Point>, point: Point) {
+    fn init(&self, model: &mut Model<Point>, point: Point) -> NormalNode<Point> {
         let component = NormalData::new(point, f64::INFINITY, 0.);
-        model.add_component(component, vec![]);
+        model.add_component(component, vec![])
     }
 
     /// Updates the model for all points after the first.
@@ -71,16 +72,16 @@ where
         vertex: &NormalNode<Point>,
         point: Point,
         neighborhood: &Vec<NormalNode<Point>>,
-    ) -> Option<NormalNode<Point>> {
+    ) -> (NormalNode<Point>, Option<NormalNode<Point>>) {
         let mut closest = vertex.as_data_mut();
         let d = (self.dist)(&closest.mu, &point);
         if d < INTRA_THRESHOLD * closest.sigma {
             self.update_component(&mut closest, point, d);
-            neighborhood.get(1).map(|v| v.clone())
+            (vertex.clone(), neighborhood.get(1).map(|v| v.clone()))
         } else {
             let component = self.split_component(point, d, &closest);
             let vertex = model.add_component(component, neighborhood.get_neighbors());
-            Some(vertex)
+            (vertex.clone(), Some(vertex))
         }
     }
 
@@ -222,7 +223,7 @@ where
 
     /// Decrease the weight of all components by applying decay factor.
     /// Remove components which weight is too low.
-    fn decay(&self, model: &mut Model<Point>, vertex: &NormalNode<Point>) {
+    fn decay(&self, model: &mut Model<Point>, vertex: NormalNode<Point>) {
         vertex.as_data_mut().weight /= DECAY_FACTOR;
         model.iter_components_mut(|v| {
             v.weight *= DECAY_FACTOR;
@@ -263,11 +264,11 @@ mod tests {
         let first = components.next().unwrap();
         assert_eq!(dataset[1], first.mu);
         assert_eq!(20., first.sigma);
-        assert_eq!(1., first.weight);
+        assert_eq!(DECAY_FACTOR, first.weight);
         let second = components.next().unwrap();
         assert_eq!(vec![13.5, -11.5], second.mu);
         assert_eq!(12.5, second.sigma);
-        assert_eq!(DECAY_FACTOR, second.weight);
+        assert_eq!(1., second.weight);
     }
 
     #[test]
