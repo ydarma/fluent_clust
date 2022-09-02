@@ -14,6 +14,8 @@ use rouille::{
 };
 use serde::{de::DeserializeOwned, Serialize};
 
+use crate::streamer;
+
 pub fn service<Point: PartialEq + Serialize + DeserializeOwned + 'static>() -> (
     impl Iterator<Item = Result<String, Box<dyn Error>>>,
     impl FnMut(String) -> Result<(), Box<dyn Error>>,
@@ -21,69 +23,52 @@ pub fn service<Point: PartialEq + Serialize + DeserializeOwned + 'static>() -> (
     let (point_producer, point_receiver) = mpsc::channel::<String>();
     let (model_producer, model_receiver) = mpsc::channel::<String>();
     spawn(move || start_server(point_producer, model_receiver));
-    channels(point_receiver, model_producer)
-}
-
-fn channels(
-    point_receiver: Receiver<String>,
-    model_producer: Sender<String>,
-) -> (
-    impl Iterator<Item = Result<String, Box<dyn Error>>>,
-    impl FnMut(String) -> Result<(), Box<dyn Error>>,
-) {
-    let points = point_receiver.into_iter().map(|f| Ok(f));
-    let write = move |model| {
-        model_producer.send(model)?;
-        Ok(())
-    };
-    (points, write)
+    streamer::channels(point_receiver, model_producer)
 }
 
 fn start_server(point_producer: Sender<String>, model_receiver: Receiver<String>) {
     let peers: Arc<Mutex<Vec<Websocket>>> = Arc::new(Mutex::new(vec![]));
     start_dispatcher(peers.clone(), model_receiver);
-    let point_producer = Arc::new(Mutex::new(point_producer));
-    rouille::start_server("0.0.0.0:80", move |request: &Request| -> Response {
-        let point_producer = point_producer.lock().unwrap().clone();
-        serve(request, peers.clone(), point_producer)
-    })
+    start_http(peers.clone(), point_producer);
 }
 
-fn serve(
-    request: &Request,
-    peers: Arc<Mutex<Vec<Websocket>>>,
-    point_producer: Sender<String>,
-) -> Response {
-    if request.url().ends_with("/ws/points") {
-        handle_point_receiver(&request, point_producer)
-    } else if request.url().ends_with("/ws/model") {
-        handle_model_producer(&request, peers)
-    } else {
-        Response::empty_404()
-    }
+fn start_http(peers: Arc<Mutex<Vec<Websocket>>>, point_producer: Sender<String>) {
+    let point_producer = Arc::new(Mutex::new(point_producer));
+    rouille::start_server("0.0.0.0:8080", move |request: &Request| -> Response {
+        if request.url().ends_with("/ws/points") {
+            handle_point_receiver(&request, point_producer.lock().unwrap().clone())
+        } else if request.url().ends_with("/ws/model") {
+            handle_model_producer(&request, peers.clone())
+        } else {
+            Response::empty_404()
+        }
+    });
 }
 
 fn handle_model_producer(request: &Request, peers: Arc<Mutex<Vec<Websocket>>>) -> Response {
     let (response, websocket) = try_or_400!(websocket::start(&request, Some("OK")));
-    let ws = websocket.recv().unwrap();
-    register_receiver(peers, ws);
+    match websocket.recv() {
+        Ok(websocket) => register_receiver(peers, websocket),
+        Err(reason) => eprintln!("{}", reason),
+    }
     response
 }
 
-fn register_receiver(peers: Arc<Mutex<Vec<Websocket>>>, ws: Websocket) {
+fn register_receiver(peers: Arc<Mutex<Vec<Websocket>>>, websocket: Websocket) {
     let mut peers = peers.lock().unwrap();
-    peers.push(ws);
+    peers.push(websocket);
 }
 
 fn handle_point_receiver(request: &Request, point_producer: Sender<String>) -> Response {
     let (response, websocket) = try_or_400!(websocket::start(&request, Some("OK")));
     spawn(move || {
-        let ws = websocket.recv().unwrap();
-        {
-            let mut websocket = ws;
-            while let Some(message) = websocket.next() {
-                read_point(message, &point_producer);
+        match websocket.recv() {
+            Ok(mut websocket) => {
+                while let Some(message) = websocket.next() {
+                    read_point(message, &point_producer);
+                }
             }
+            Err(reason) => eprint!("{}", reason),
         };
     });
     response
@@ -92,7 +77,7 @@ fn handle_point_receiver(request: &Request, point_producer: Sender<String>) -> R
 fn read_point(message: websocket::Message, point_producer: &Sender<String>) {
     match message {
         websocket::Message::Text(txt) => match point_producer.send(txt) {
-            Err(str) => eprintln!("{:#?}", str),
+            Err(reason) => eprintln!("{:#?}", reason),
             _ => {}
         },
         websocket::Message::Binary(_) => {
@@ -113,7 +98,7 @@ fn start_dispatcher(peers: Arc<Mutex<Vec<Websocket>>>, model_receiver: Receiver<
 fn send_model(peer: &mut Websocket, msg: &String) -> bool {
     if !peer.is_closed() {
         match peer.send_text(&msg) {
-            Err(str) => eprintln!("{:#?}", str),
+            Err(reason) => eprintln!("{:#?}", reason),
             _ => {}
         };
         true

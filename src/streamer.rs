@@ -1,4 +1,4 @@
-use std::{error::Error, io, ops::Deref};
+use std::{error::Error, io, ops::{Deref}, sync::mpsc::{Sender, Receiver}};
 
 use crate::{
     algorithm::Algo,
@@ -79,6 +79,7 @@ fn serialize_component<Point: PartialEq + Serialize>(
     map
 }
 
+/// Returns point iterator / model writer that use standard in out.
 pub fn stdio() -> (
     impl Iterator<Item = Result<String, Box<dyn Error>>>,
     impl FnMut(String) -> Result<(), Box<dyn Error>>,
@@ -88,6 +89,22 @@ pub fn stdio() -> (
         .map(|f| -> Result<String, Box<dyn Error>> { Ok(f?) });
     let write = |model| {
         println!("{}", model);
+        Ok(())
+    };
+    (points, write)
+}
+
+/// Returns point iterator / model writer that use mpsc channels.
+pub fn channels(
+    point_receiver: Receiver<String>,
+    model_producer: Sender<String>,
+) -> (
+    impl Iterator<Item = Result<String, Box<dyn Error>>>,
+    impl FnMut(String) -> Result<(), Box<dyn Error>>,
+) {
+    let points = point_receiver.into_iter().map(|f| Ok(f));
+    let write = move |model| {
+        model_producer.send(model)?;
         Ok(())
     };
     (points, write)
