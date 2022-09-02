@@ -10,9 +10,9 @@ use serde_json::{json, Map, Value};
 /// Reads data form `In` source and write model to `Out` sink.
 /// ```
 /// use std::{error::Error, io};
-/// 
+///
 /// use fluent_data::{algorithm::Algo, model::Model, space, streamer::{Streamer, self}};
-/// 
+///
 /// fn main() -> Result<(), Box<dyn Error>> {
 ///     let algo = Algo::new(space::euclid_dist, space::real_combine);
 ///     let mut model = Model::new(space::euclid_dist);
@@ -22,29 +22,28 @@ use serde_json::{json, Map, Value};
 ///     Ok(())
 /// }
 /// ```
-pub struct Streamer<In, Out, Err>
+pub struct Streamer<In, Out>
 where
-    In: Iterator<Item = Result<String, Err>>,
+    In: Iterator<Item = Result<String, Box<dyn Error>>>,
     Out: FnMut(String),
 {
     points: In,
     write: Out,
 }
 
-impl<In, Out, Err> Streamer<In, Out, Err>
+impl<In, Out> Streamer<In, Out>
 where
-    In: Iterator<Item = Result<String, Err>>,
+    In: Iterator<Item = Result<String, Box<dyn Error>>>,
     Out: FnMut(String),
-    Err: Error + 'static,
 {
     /// builds a new streamer instance.
     pub fn new(points: In, write: Out) -> Self {
         Self { points, write }
     }
 
-    /// Infinitely reads points from `In` source and write model changes to `Out` sink. On error, return `Err`.
+    /// Infinitely reads points from `In` source and write model changes to `Out` sink.
     pub fn run<Point: PartialEq + Serialize + DeserializeOwned + 'static>(
-        mut streamer: Streamer<In, Out, Err>,
+        mut streamer: Streamer<In, Out>,
         algo: Algo<Point>,
         model: &mut Model<Point>,
     ) -> Result<(), Box<dyn Error>> {
@@ -81,10 +80,12 @@ fn serialize_component<Point: PartialEq + Serialize>(
 }
 
 pub fn stdio() -> (
-    impl Iterator<Item = Result<String, std::io::Error>>,
+    impl Iterator<Item = Result<String, Box<dyn Error>>>,
     impl FnMut(String),
 ) {
-    let points = io::stdin().lines();
+    let points = io::stdin()
+        .lines()
+        .map(|f| -> Result<String, Box<dyn Error>> { Ok(f?) });
     let write = |model: String| println!("{}", model);
     (points, write)
 }
@@ -110,9 +111,7 @@ mod tests {
         let algo = Algo::new(space::euclid_dist, space::real_combine);
         let mut model = Model::new(space::euclid_dist);
         let dataset = build_sample();
-        let points = dataset
-            .iter()
-            .map(|v| -> Result<String, std::io::Error> { Ok(json!(v).to_string()) });
+        let points = dataset.iter().map(|v| Ok(json!(v).to_string()));
         let mut result: Vec<String> = vec![];
         let write = |model: String| result.push(model);
         let streamer = Streamer::new(points, write);
