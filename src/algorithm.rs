@@ -175,7 +175,9 @@ impl<Point: PartialEq + 'static> Algo<Point> {
         candidate: GaussianNode<Point>,
     ) -> Vec<GaussianNode<Point>> {
         let current_point = &vertex.deref_data().mu;
-        let candidate_dist = (self.dist)(&candidate.deref_data().mu, &current_point);
+        let dist_to_current = |p: &GaussianNode<Point>| (self.dist)(&p.deref_data().mu, &current_point);
+
+        let candidate_dist = dist_to_current(&candidate);
         for i in 0..MAX_NEIGHBORS {
             // not enough known neighbors: push candidate
             if i == neighborhood.len() {
@@ -187,7 +189,7 @@ impl<Point: PartialEq + 'static> Algo<Point> {
                 break;
             }
             // candidate is closer than known neighbor: insert candidate
-            if (self.dist)(&neighborhood[i].deref_data().mu, &current_point) > candidate_dist {
+            if dist_to_current(&neighborhood[i]) > candidate_dist {
                 neighborhood.insert(i, candidate);
                 break;
             }
