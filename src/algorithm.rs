@@ -2,9 +2,9 @@ use std::{marker::PhantomData, ops::DerefMut};
 
 use crate::model::{GetNeighbors, Model, GaussianData, GaussianNode};
 
-const EXTRA_THRESHOLD: f64 = 16.;
-const INTRA_THRESHOLD: f64 = 9.;
-const MERGE_THRESHOLD: f64 = 1.;
+const EXTRA_THRESHOLD: f64 = 25.;
+const INTRA_THRESHOLD: f64 = 16.;
+const MERGE_THRESHOLD: f64 = 4.;
 const DECAY_FACTOR: f64 = 0.999;
 const DECAY_THRESHOLD: f64 = 1E-6;
 const MAX_NEIGHBORS: usize = 2;
@@ -30,13 +30,9 @@ const MAX_NEIGHBORS: usize = 2;
 /// }
 /// let mut components = model.iter_components();
 /// let first = components.next().unwrap();
-/// assert_eq!(&dataset[1], first.mu());
-/// assert_eq!(20., first.sigma());
-/// assert_eq!(0.999, first.weight());
-/// let second = components.next().unwrap();
-/// assert_eq!(&vec![13.5, -11.5], second.mu());
-/// assert_eq!(12.5, second.sigma());
-/// assert_eq!(1., second.weight());
+/// assert_eq!(&vec![6., -4.], first.mu());
+/// assert_eq!(110., first.sigma());
+/// assert_eq!(2., first.weight());
 /// ```
 pub struct Algo<Point: PartialEq + 'static> {
     dist: Box<dyn Fn(&Point, &Point) -> f64>,
@@ -252,7 +248,7 @@ impl<Point: PartialEq + 'static> Algo<Point> {
 }
 
 #[cfg(test)]
-pub(crate) mod tests {
+mod tests {
     use crate::algorithm::*;
     use crate::space;
 
@@ -285,8 +281,8 @@ pub(crate) mod tests {
         assert_eq!(20., first.sigma);
         assert_eq!(DECAY_FACTOR, first.weight);
         let second = components.next().unwrap();
-        assert_eq!(vec![13.5, -11.5], second.mu);
-        assert_eq!(12.5, second.sigma);
+        assert_eq!(vec![18.5, -16.5], second.mu);
+        assert_eq!(15.68, second.sigma);
         assert_eq!(1., second.weight);
     }
 
@@ -343,21 +339,21 @@ pub(crate) mod tests {
 
     #[test]
     fn test_merge() {
-        let (_dataset, model) = build_model(37);
+        let (_dataset, model) = build_model(7);
         let mut components = model.iter_components();
         let first = components.next().unwrap();
         let second = components.next().unwrap();
         let third = components.next().unwrap();
         assert!(components.next().is_none());
-        assert!(first.weight > 30.);
+        assert!(first.weight > 3.);
         assert!(second.weight < 1.);
         assert!(third.weight < 1.);
-        assert!(first.mu[0] < 6.);
-        assert!(first.mu[1] < -2.);
-        assert!(second.mu[0] > 6.);
-        assert!(second.mu[1] > -2.);
-        assert!(third.mu[0] > 6.);
-        assert!(third.mu[1] > -2.);
+        assert!(first.mu[0] < 10.);
+        assert!(first.mu[1] < 0.);
+        assert!(second.mu[0] > 10.);
+        assert!(second.mu[1] > 0.);
+        assert!(third.mu[0] > 10.);
+        assert!(third.mu[1] > 0.);
         let mut n1 = model.graph[0].iter_neighbors();
         assert_eq!(third.mu, n1.next().unwrap().deref_data().mu);
         assert!(n1.next().is_none());
@@ -373,44 +369,14 @@ pub(crate) mod tests {
         (dataset, model)
     }
 
-    pub(crate) fn build_sample() -> Vec<Vec<f64>> {
+    fn build_sample() -> Vec<Vec<f64>> {
         vec![
             vec![5., -1.],
             vec![1., 1.],
-            vec![11., -9.],
-            vec![8., 17.],
-            vec![20., -3.],
-            vec![8., -8.],
-            vec![5., -4.],
-            vec![4., -6.],
-            vec![7., -6.],
-            vec![3., -5.],
-            vec![5., -6.],
-            vec![5., -6.],
-            vec![5., -5.],
-            vec![3., -4.],
-            vec![3., -3.],
-            vec![5., -5.],
-            vec![5., -4.],
-            vec![7., -6.],
-            vec![6., -5.],
-            vec![6., -4.],
-            vec![5., -3.],
-            vec![3., -4.],
-            vec![4., -5.],
-            vec![4., -4.],
-            vec![6., -6.],
-            vec![5., -4.],
-            vec![4., -6.],
-            vec![7., -6.],
-            vec![2., -2.],
-            vec![3., -3.],
-            vec![6., -5.],
-            vec![6., -4.],
-            vec![4., -5.],
-            vec![4., -4.],
-            vec![4., -3.],
-            vec![4., -3.],
+            vec![15., -13.],
+            vec![11., 23.],
+            vec![31., -3.],
+            vec![11., -11.],
             vec![6., -6.],
         ]
     }

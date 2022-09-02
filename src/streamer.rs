@@ -1,8 +1,13 @@
-use std::{error::Error, io, ops::{Deref}, sync::mpsc::{Sender, Receiver}};
+use std::{
+    error::Error,
+    io,
+    ops::Deref,
+    sync::mpsc::{Receiver, Sender},
+};
 
 use crate::{
     algorithm::Algo,
-    model::{Model, GaussianData},
+    model::{GaussianData, Model},
 };
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Map, Value};
@@ -25,7 +30,7 @@ use serde_json::{json, Map, Value};
 pub struct Streamer<In, Out>
 where
     In: Iterator<Item = Result<String, Box<dyn Error>>>,
-    Out: FnMut(String)-> Result<(), Box<dyn Error>>,
+    Out: FnMut(String) -> Result<(), Box<dyn Error>>,
 {
     points: In,
     write: Out,
@@ -34,7 +39,7 @@ where
 impl<In, Out> Streamer<In, Out>
 where
     In: Iterator<Item = Result<String, Box<dyn Error>>>,
-    Out: FnMut(String)-> Result<(), Box<dyn Error>>,
+    Out: FnMut(String) -> Result<(), Box<dyn Error>>,
 {
     /// builds a new streamer instance.
     pub fn new(points: In, write: Out) -> Self {
@@ -112,37 +117,13 @@ pub fn channels(
 
 #[cfg(test)]
 mod tests {
-    use crate::algorithm::tests::build_sample;
-    use crate::{space, streamer::*};
-    use regex::Regex;
 
-    const OUT_PATTERN: &str =
-        r#"^\[(\{"mu":\[[-0-9.]*,[-0-9.]*\],"sigma":(null|[0-9.]*),"weight":[0-9.]*\},?)*\]$"#;
+    use crate::streamer::*;
 
     #[test]
     fn test_serialize_component() {
         let obj = serialize_component(&GaussianData::new(vec![3., 5.1], 4.7, 0.999));
         let json = serde_json::to_string(&obj).unwrap();
         assert_eq!(r#"{"mu":[3.0,5.1],"sigma":4.7,"weight":0.999}"#, json);
-    }
-
-    #[test]
-    fn test_streamer() {
-        let algo = Algo::new(space::euclid_dist, space::real_combine);
-        let mut model = Model::new(space::euclid_dist);
-        let dataset = build_sample();
-        let points = dataset.iter().map(|v| Ok(json!(v).to_string()));
-        let mut result: Vec<String> = vec![];
-        let write = |model: String| Ok(result.push(model));
-        let streamer = Streamer::new(points, write);
-        match Streamer::run(streamer, algo, &mut model) {
-            Ok(()) => {
-                let re = Regex::new(OUT_PATTERN).unwrap();
-                assert!(result.iter().all(|r| re.is_match(r)));
-            }
-            Err(_) => {
-                assert!(false)
-            }
-        };
     }
 }
