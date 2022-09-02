@@ -80,15 +80,15 @@ impl<Point: PartialEq + 'static> Model<Point> {
         RefNode: Deref<Target = NormalNode<Point>>,
     {
         let mut neighbors = vec![];
-        match neighborhood.0 {
-            Some(n1) => {
+        match neighborhood {
+            Neighborhood::Two(n1, n2) => {
                 neighbors.push(Vertex::clone(n1.coord()));
-                match neighborhood.1 {
-                    Some(n2) => neighbors.push(Vertex::clone(n2.coord())),
-                    _ => {}
-                }
+                neighbors.push(Vertex::clone(n2.coord()));
             }
-            _ => {}
+            Neighborhood::One(n1) => {
+                neighbors.push(Vertex::clone(n1.coord()));
+            }
+            Neighborhood::None => {}
         }
         neighbors
     }
@@ -164,8 +164,11 @@ mod tests {
         let point = vec![4.];
         let dist = Model::normalize_dist(space::euclid_dist);
         let neighbors = components.iter().get_neighborhood(&point, dist);
-        let neighbor1 = neighbors.0.unwrap();
-        let neighbor2 = neighbors.1.unwrap();
+        let (neighbor1, neighbor2) = if let Neighborhood::Two(neighbor1, neighbor2) = neighbors {
+            (neighbor1, neighbor2) 
+        } else {
+            panic!();
+        };
         assert_eq!(&components[1], neighbor1.coord());
         assert_eq!(2., neighbor1.dist());
         assert_eq!(&components[0], neighbor2.coord());

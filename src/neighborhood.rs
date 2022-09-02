@@ -24,12 +24,14 @@ where
 
 /// The two nearest neighbors when they exist.
 #[derive(PartialEq, Debug)]
-pub struct Neighborhood<Model, RefModel>(
-    pub Option<NeighborDist<Model, RefModel>>,
-    pub Option<NeighborDist<Model, RefModel>>,
-)
+pub enum Neighborhood<Model, RefModel>
 where
-    RefModel: Deref<Target = Model>;
+    RefModel: Deref<Target = Model>
+{
+    Two(NeighborDist<Model, RefModel>, NeighborDist<Model, RefModel>),
+    One(NeighborDist<Model, RefModel>),
+    None,
+}
 
 /// Defines a two nearest neighbors getter function.
 ///
@@ -70,7 +72,7 @@ where
     if let Some(d1) = p1 {
         fold_1(d1, iter)
     } else {
-        Neighborhood(None, None)
+        Neighborhood::None
     }
 }
 
@@ -86,7 +88,7 @@ where
     if let Some(d2) = p2 {
         fold_others_2(first, d2, others)
     } else {
-        Neighborhood(Some(first), None)
+        Neighborhood::One(first)
     }
 }
 
@@ -103,7 +105,7 @@ where
         swap(&mut first, &mut second)
     }
     let (d1, d2) = others.fold((first, second), |(d1, d2), d| smallest(d1, d2, d));
-    Neighborhood(Some(d1), Some(d2))
+    Neighborhood::Two(d1, d2)
 }
 
 /// find the two nearest neighbors among three models.
@@ -146,18 +148,18 @@ mod tests {
         let point = &vec![0., 0.];
         let nn = centers.iter().get_neighborhood(point, space::euclid_dist);
         assert_eq!(
-            Neighborhood(
-                Some(NeighborDist(&centers[3], 1.25)),
-                Some(NeighborDist(&centers[0], 2.))
+            Neighborhood::Two(
+                NeighborDist(&centers[3], 1.25),
+                NeighborDist(&centers[0], 2.)
             ),
             nn
         );
         let point = &vec![1.2, 5.];
         let nn = centers.iter().get_neighborhood(point, space::euclid_dist);
         assert_eq!(
-            Neighborhood(
-                Some(NeighborDist(&centers[2], 2.44)),
-                Some(NeighborDist(&centers[0], 16.04))
+            Neighborhood::Two(
+                NeighborDist(&centers[2], 2.44),
+                NeighborDist(&centers[0], 16.04)
             ),
             nn
         );
@@ -168,7 +170,7 @@ mod tests {
         let centers = vec![];
         let point = &vec![0., 0.];
         let nn = centers.iter().get_neighborhood(point, space::euclid_dist);
-        assert_eq!(Neighborhood(None, None), nn);
+        assert_eq!(Neighborhood::None, nn);
     }
 
     #[test]
@@ -176,7 +178,7 @@ mod tests {
         let centers = vec![vec![1., 1.]];
         let point = &vec![0., 0.];
         let nn = centers.iter().get_neighborhood(point, space::euclid_dist);
-        assert_eq!(Neighborhood(Some(NeighborDist(&centers[0], 2.)), None), nn);
+        assert_eq!(Neighborhood::One(NeighborDist(&centers[0], 2.)), nn);
     }
 
     #[test]
@@ -185,9 +187,9 @@ mod tests {
         let point = &vec![0., 0.];
         let nn = centers.iter().get_neighborhood(point, space::euclid_dist);
         assert_eq!(
-            Neighborhood(
-                Some(NeighborDist(&centers[1], 1.25)),
-                Some(NeighborDist(&centers[0], 2.))
+            Neighborhood::Two(
+                NeighborDist(&centers[1], 1.25),
+                NeighborDist(&centers[0], 2.)
             ),
             nn
         );
