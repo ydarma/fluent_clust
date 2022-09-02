@@ -69,12 +69,12 @@ impl<Data: PartialEq> Vertex<Data> {
     }
 
     /// Get a `Ref` to this vertex data.
-    pub fn as_data<'a>(&'a self) -> impl Deref<Target = Data> + 'a {
+    pub fn deref_data<'a>(&'a self) -> impl Deref<Target = Data> + 'a {
         Ref::map(self.node.borrow(), |n| &n.data)
     }
 
     /// Get a `RefMut` to this vertex data.
-    pub fn as_data_mut(&self) -> impl DerefMut<Target = Data> + '_ {
+    pub fn deref_data_mut(&self) -> impl DerefMut<Target = Data> + '_ {
         RefMut::map(self.node.borrow_mut(), |n| &mut n.data)
     }
 }
@@ -154,8 +154,8 @@ mod tests {
         let n2 = Vertex::new(2);
         n2.set_neighbors(vec![n1.as_neighbor()]);
         let n1_from_n2 = n2.iter_neighbors().next().unwrap();
-        *n1_from_n2.as_data_mut() = 3;
-        assert_eq!(3, *n1.as_data());
+        *n1_from_n2.deref_data_mut() = 3;
+        assert_eq!(3, *n1.deref_data());
     }
 
     #[test]

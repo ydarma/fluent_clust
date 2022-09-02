@@ -94,7 +94,7 @@ impl<Point: PartialEq + 'static> Algo<Point> {
         point: Point,
         neighborhood: &Vec<GaussianNode<Point>>,
     ) -> (GaussianNode<Point>, Option<GaussianNode<Point>>) {
-        let mut closest = vertex.as_data_mut();
+        let mut closest = vertex.deref_data_mut();
         let d = (self.dist)(&closest.mu, &point);
         if d < INTRA_THRESHOLD * closest.sigma {
             self.update_component(&mut closest, point, d);
@@ -174,8 +174,8 @@ impl<Point: PartialEq + 'static> Algo<Point> {
         mut neighborhood: Vec<GaussianNode<Point>>,
         candidate: GaussianNode<Point>,
     ) -> Vec<GaussianNode<Point>> {
-        let current_point = &vertex.as_data().mu;
-        let candidate_dist = (self.dist)(&candidate.as_data().mu, &current_point);
+        let current_point = &vertex.deref_data().mu;
+        let candidate_dist = (self.dist)(&candidate.deref_data().mu, &current_point);
         for i in 0..MAX_NEIGHBORS {
             // not enough known neighbors: push candidate
             if i == neighborhood.len() {
@@ -187,7 +187,7 @@ impl<Point: PartialEq + 'static> Algo<Point> {
                 break;
             }
             // candidate is closer than known neighbor: insert candidate
-            if (self.dist)(&neighborhood[i].as_data().mu, &current_point) > candidate_dist {
+            if (self.dist)(&neighborhood[i].deref_data().mu, &current_point) > candidate_dist {
                 neighborhood.insert(i, candidate);
                 break;
             }
@@ -211,8 +211,8 @@ impl<Point: PartialEq + 'static> Algo<Point> {
 
     /// Decides if two components are close enough to merge.
     fn should_merge(&self, first: &GaussianNode<Point>, second: &GaussianNode<Point>) -> (bool, f64) {
-        let current_data = first.as_data();
-        let neighbor_data = second.as_data();
+        let current_data = first.deref_data();
+        let neighbor_data = second.deref_data();
         let d = (self.dist)(&current_data.mu, &neighbor_data.mu);
         let should_merge = d < (current_data.sigma + neighbor_data.sigma) * MERGE_THRESHOLD;
         (should_merge, d)
@@ -222,8 +222,8 @@ impl<Point: PartialEq + 'static> Algo<Point> {
     /// The new center is the weighted center of the component centers
     /// and the new variance is the weighted average of the components variances.
     fn merge_components(&self, vertex: &GaussianNode<Point>, neighbor: &GaussianNode<Point>, d: f64) {
-        let mut current_data = vertex.as_data_mut();
-        let mut neighbor_data = neighbor.as_data_mut();
+        let mut current_data = vertex.deref_data_mut();
+        let mut neighbor_data = neighbor.deref_data_mut();
         current_data.mu = (self.combine)(
             &current_data.mu,
             current_data.weight,
@@ -241,7 +241,7 @@ impl<Point: PartialEq + 'static> Algo<Point> {
     /// Decrease the weight of all components by applying decay factor.
     /// Remove components which weight is too low.
     fn decay(&self, model: &mut Model<Point>, vertex: GaussianNode<Point>) {
-        vertex.as_data_mut().weight /= DECAY_FACTOR;
+        vertex.deref_data_mut().weight /= DECAY_FACTOR;
         model.iter_components_mut(|v| {
             v.weight *= DECAY_FACTOR;
             v.weight > DECAY_THRESHOLD
@@ -295,10 +295,10 @@ pub(crate) mod tests {
         let first = components.next().unwrap();
         let second = components.next().unwrap();
         let mut n1 = model.graph[0].iter_neighbors();
-        assert_eq!(second.mu, n1.next().unwrap().as_data().mu);
+        assert_eq!(second.mu, n1.next().unwrap().deref_data().mu);
         assert!(n1.next().is_none());
         let mut n2 = model.graph[1].iter_neighbors();
-        assert_eq!(first.mu, n2.next().unwrap().as_data().mu);
+        assert_eq!(first.mu, n2.next().unwrap().deref_data().mu);
         assert!(n2.next().is_none());
     }
 
@@ -310,14 +310,14 @@ pub(crate) mod tests {
         let second = components.next().unwrap();
         let third = components.next().unwrap();
         let mut n1 = model.graph[0].iter_neighbors();
-        assert_eq!(second.mu, n1.next().unwrap().as_data().mu);
-        assert_eq!(third.mu, n1.next().unwrap().as_data().mu); // appended during refinement
+        assert_eq!(second.mu, n1.next().unwrap().deref_data().mu);
+        assert_eq!(third.mu, n1.next().unwrap().deref_data().mu); // appended during refinement
         let mut n2 = model.graph[1].iter_neighbors();
-        assert_eq!(first.mu, n2.next().unwrap().as_data().mu);
+        assert_eq!(first.mu, n2.next().unwrap().deref_data().mu);
         assert!(n2.next().is_none()); // not up to date for now
         let mut n3 = model.graph[2].iter_neighbors();
-        assert_eq!(first.mu, n3.next().unwrap().as_data().mu);
-        assert_eq!(second.mu, n3.next().unwrap().as_data().mu);
+        assert_eq!(first.mu, n3.next().unwrap().deref_data().mu);
+        assert_eq!(second.mu, n3.next().unwrap().deref_data().mu);
     }
 
     #[test]
@@ -329,14 +329,14 @@ pub(crate) mod tests {
         let third = components.next().unwrap();
         let fourth = components.next().unwrap();
         let mut n1 = model.graph[0].iter_neighbors();
-        assert_eq!(second.mu, n1.next().unwrap().as_data().mu);
-        assert_eq!(third.mu, n1.next().unwrap().as_data().mu);
+        assert_eq!(second.mu, n1.next().unwrap().deref_data().mu);
+        assert_eq!(third.mu, n1.next().unwrap().deref_data().mu);
         let mut n2 = model.graph[1].iter_neighbors();
-        assert_eq!(fourth.mu, n2.next().unwrap().as_data().mu); // prepended during refinement
-        assert_eq!(first.mu, n2.next().unwrap().as_data().mu);
+        assert_eq!(fourth.mu, n2.next().unwrap().deref_data().mu); // prepended during refinement
+        assert_eq!(first.mu, n2.next().unwrap().deref_data().mu);
         let mut n3 = model.graph[2].iter_neighbors();
-        assert_eq!(first.mu, n3.next().unwrap().as_data().mu);
-        assert_eq!(second.mu, n3.next().unwrap().as_data().mu);
+        assert_eq!(first.mu, n3.next().unwrap().deref_data().mu);
+        assert_eq!(second.mu, n3.next().unwrap().deref_data().mu);
     }
 
     #[test]
@@ -357,7 +357,7 @@ pub(crate) mod tests {
         assert!(third.mu[0] > 6.);
         assert!(third.mu[1] > -2.);
         let mut n1 = model.graph[0].iter_neighbors();
-        assert_eq!(third.mu, n1.next().unwrap().as_data().mu);
+        assert_eq!(third.mu, n1.next().unwrap().deref_data().mu);
         assert!(n1.next().is_none());
     }
 

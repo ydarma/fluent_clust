@@ -68,7 +68,7 @@ impl<Point: PartialEq + 'static> Model<Point> {
         let neighborhood = self
             .graph
             .iter()
-            .get_neighborhood(point, |p, m| (self.dist)(p, &*m.as_data()));
+            .get_neighborhood(point, |p, m| (self.dist)(p, &*m.deref_data()));
         Self::get_neighbors(neighborhood)
     }
 
@@ -111,7 +111,7 @@ impl<Point: PartialEq + 'static> Model<Point> {
     pub fn iter_components(
         &self,
     ) -> impl Iterator<Item = impl Deref<Target = GaussianData<Point>> + '_> {
-        self.graph.iter().map(|v| v.as_data())
+        self.graph.iter().map(|v| v.deref_data())
     }
 
     /// Mutate the model components in sequence. The closure should return `true` to retain the components or `false` to discard it.
@@ -119,7 +119,7 @@ impl<Point: PartialEq + 'static> Model<Point> {
     where
         F: FnMut(&mut GaussianData<Point>) -> bool,
     {
-        self.graph.retain(|v| f(&mut *v.as_data_mut()))
+        self.graph.retain(|v| f(&mut *v.deref_data_mut()))
     }
 }
 
@@ -209,7 +209,7 @@ mod tests {
         let c2 = components.next();
         assert!(c2.is_none());
         assert_eq!(1, model.graph.len());
-        assert_eq!(&n2, &*model.graph[0].as_data());
+        assert_eq!(&n2, &*model.graph[0].deref_data());
         assert!(model.graph[0].iter_neighbors().next().is_none());
     }
 
