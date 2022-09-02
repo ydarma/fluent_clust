@@ -25,7 +25,7 @@ use serde_json::{json, Map, Value};
 pub struct Streamer<In, Out>
 where
     In: Iterator<Item = Result<String, Box<dyn Error>>>,
-    Out: FnMut(String),
+    Out: FnMut(String)-> Result<(), Box<dyn Error>>,
 {
     points: In,
     write: Out,
@@ -34,7 +34,7 @@ where
 impl<In, Out> Streamer<In, Out>
 where
     In: Iterator<Item = Result<String, Box<dyn Error>>>,
-    Out: FnMut(String),
+    Out: FnMut(String)-> Result<(), Box<dyn Error>>,
 {
     /// builds a new streamer instance.
     pub fn new(points: In, write: Out) -> Self {
@@ -53,7 +53,7 @@ where
             algo.fit(model, point);
             let components = serialize_model(model);
             let output = serde_json::to_string(&components)?;
-            (streamer.write)(output);
+            (streamer.write)(output)?;
         }
         Ok(())
     }
@@ -81,12 +81,15 @@ fn serialize_component<Point: PartialEq + Serialize>(
 
 pub fn stdio() -> (
     impl Iterator<Item = Result<String, Box<dyn Error>>>,
-    impl FnMut(String),
+    impl FnMut(String) -> Result<(), Box<dyn Error>>,
 ) {
     let points = io::stdin()
         .lines()
         .map(|f| -> Result<String, Box<dyn Error>> { Ok(f?) });
-    let write = |model: String| println!("{}", model);
+    let write = |model| {
+        println!("{}", model);
+        Ok(())
+    };
     (points, write)
 }
 
@@ -113,7 +116,7 @@ mod tests {
         let dataset = build_sample();
         let points = dataset.iter().map(|v| Ok(json!(v).to_string()));
         let mut result: Vec<String> = vec![];
-        let write = |model: String| result.push(model);
+        let write = |model: String| Ok(result.push(model));
         let streamer = Streamer::new(points, write);
         match Streamer::run(streamer, algo, &mut model) {
             Ok(()) => {
