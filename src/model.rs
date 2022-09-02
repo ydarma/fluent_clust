@@ -5,18 +5,18 @@ use crate::{
     neighborhood::{GetNeighborhood, Neighborhood},
 };
 
-/// Parameters of a normal component.
+/// Parameters of a gaussian component.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct NormalData<Point: PartialEq> {
+pub struct GaussianData<Point: PartialEq> {
     pub(crate) mu: Point,
     pub(crate) sigma: f64,
     pub(crate) weight: f64,
 }
 
-impl<Point: PartialEq> NormalData<Point> {
-    /// Builds a new normal component.
+impl<Point: PartialEq> GaussianData<Point> {
+    /// Builds a new gaussian component.
     pub fn new(mu: Point, sigma: f64, weight: f64) -> Self {
-        NormalData { mu, sigma, weight }
+        GaussianData { mu, sigma, weight }
     }
 
     /// Mean.
@@ -35,12 +35,12 @@ impl<Point: PartialEq> NormalData<Point> {
     }
 }
 
-pub type NormalNode<Point> = Vertex<NormalData<Point>>;
+pub type GaussianNode<Point> = Vertex<GaussianData<Point>>;
 
-/// Represents a mixed normal model.
+/// Represents a mixed gaussian model.
 pub struct Model<Point: PartialEq> {
-    pub(crate) dist: Box<dyn Fn(&Point, &NormalData<Point>) -> f64>,
-    pub(crate) graph: Vec<NormalNode<Point>>,
+    pub(crate) dist: Box<dyn Fn(&Point, &GaussianData<Point>) -> f64>,
+    pub(crate) graph: Vec<GaussianNode<Point>>,
 }
 
 impl<Point: PartialEq + 'static> Model<Point> {
@@ -50,21 +50,21 @@ impl<Point: PartialEq + 'static> Model<Point> {
         Dist: Fn(&Point, &Point) -> f64 + 'static,
     {
         Self {
-            dist: Box::new(Model::normalize_dist(space_dist)),
+            dist: Box::new(Model::gaussianize_dist(space_dist)),
             graph: vec![],
         }
     }
 
-    /// Normalizes the given distance function by dividing by the variance.
-    fn normalize_dist<Dist>(space_dist: Dist) -> impl Fn(&Point, &NormalData<Point>) -> f64
+    /// Gaussianizes the given distance function by dividing by the variance.
+    fn gaussianize_dist<Dist>(space_dist: Dist) -> impl Fn(&Point, &GaussianData<Point>) -> f64
     where
         Dist: Fn(&Point, &Point) -> f64,
     {
-        move |p1: &Point, p2: &NormalData<Point>| space_dist(p1, &p2.mu) / p2.sigma
+        move |p1: &Point, p2: &GaussianData<Point>| space_dist(p1, &p2.mu) / p2.sigma
     }
 
     /// Get the components which the given points most probably belongs to.
-    pub fn get_neighborhood(&self, point: &Point) -> Vec<NormalNode<Point>> {
+    pub fn get_neighborhood(&self, point: &Point) -> Vec<GaussianNode<Point>> {
         let neighborhood = self
             .graph
             .iter()
@@ -74,10 +74,10 @@ impl<Point: PartialEq + 'static> Model<Point> {
 
     /// Extracts `Neighbor` instance for a `Neighborhood`
     fn get_neighbors<RefNode>(
-        neighborhood: Neighborhood<NormalNode<Point>, RefNode>,
-    ) -> Vec<NormalNode<Point>>
+        neighborhood: Neighborhood<GaussianNode<Point>, RefNode>,
+    ) -> Vec<GaussianNode<Point>>
     where
-        RefNode: Deref<Target = NormalNode<Point>>,
+        RefNode: Deref<Target = GaussianNode<Point>>,
     {
         let mut neighbors = vec![];
         match neighborhood {
@@ -98,9 +98,9 @@ impl<Point: PartialEq + 'static> Model<Point> {
     /// thus in order to avoid unecessary calls to `Self.get_neighborhood` they are also passed.
     pub(crate) fn add_component(
         &mut self,
-        component: NormalData<Point>,
-        neighbors: Vec<Neighbor<NormalData<Point>>>,
-    ) -> NormalNode<Point> {
+        component: GaussianData<Point>,
+        neighbors: Vec<Neighbor<GaussianData<Point>>>,
+    ) -> GaussianNode<Point> {
         let vertex = Vertex::new(component);
         vertex.set_neighbors(neighbors);
         self.graph.push(vertex.clone());
@@ -110,25 +110,25 @@ impl<Point: PartialEq + 'static> Model<Point> {
     /// Gets an iterator over the model components.
     pub fn iter_components(
         &self,
-    ) -> impl Iterator<Item = impl Deref<Target = NormalData<Point>> + '_> {
+    ) -> impl Iterator<Item = impl Deref<Target = GaussianData<Point>> + '_> {
         self.graph.iter().map(|v| v.as_data())
     }
 
     /// Mutate the model components in sequence. The closure should return `true` to retain the components or `false` to discard it.
     pub(crate) fn iter_components_mut<F>(&mut self, mut f: F)
     where
-        F: FnMut(&mut NormalData<Point>) -> bool,
+        F: FnMut(&mut GaussianData<Point>) -> bool,
     {
         self.graph.retain(|v| f(&mut *v.as_data_mut()))
     }
 }
 
 pub trait GetNeighbors<Point: PartialEq> {
-    fn get_neighbors(&self) -> Vec<Neighbor<NormalData<Point>>>;
+    fn get_neighbors(&self) -> Vec<Neighbor<GaussianData<Point>>>;
 }
 
-impl<Point: PartialEq> GetNeighbors<Point> for Vec<NormalNode<Point>> {
-    fn get_neighbors(&self) -> Vec<Neighbor<NormalData<Point>>> {
+impl<Point: PartialEq> GetNeighbors<Point> for Vec<GaussianNode<Point>> {
+    fn get_neighbors(&self) -> Vec<Neighbor<GaussianData<Point>>> {
         self.iter().map(|n| n.as_neighbor()).collect()
     }
 }
@@ -139,7 +139,7 @@ mod tests {
 
     #[test]
     fn test_build_norm_data() {
-        let norm = NormalData::new(0., 1., 11.1);
+        let norm = GaussianData::new(0., 1., 11.1);
         assert_eq!(norm.mu, 0.);
         assert_eq!(norm.sigma, 1.);
         assert_eq!(norm.weight, 11.1);
@@ -147,8 +147,8 @@ mod tests {
 
     #[test]
     fn test_model_dist() {
-        let dist = Model::normalize_dist(space::euclid_dist);
-        let norm = NormalData::new(vec![0.], 4., 11.1);
+        let dist = Model::gaussianize_dist(space::euclid_dist);
+        let norm = GaussianData::new(vec![0.], 4., 11.1);
         let point = vec![4.];
         let d = dist(&point, &norm);
         assert_eq!(4., d);
@@ -157,12 +157,12 @@ mod tests {
     #[test]
     fn test_model_find_neighbors() {
         let components = vec![
-            NormalData::new(vec![1.], 4., 11.),
-            NormalData::new(vec![2.], 2., 1.),
-            NormalData::new(vec![6.], 1., 7.),
+            GaussianData::new(vec![1.], 4., 11.),
+            GaussianData::new(vec![2.], 2., 1.),
+            GaussianData::new(vec![6.], 1., 7.),
         ];
         let point = vec![4.];
-        let dist = Model::normalize_dist(space::euclid_dist);
+        let dist = Model::gaussianize_dist(space::euclid_dist);
         let neighbors = components.iter().get_neighborhood(&point, dist);
         let (neighbor1, neighbor2) = if let Neighborhood::Two(neighbor1, neighbor2) = neighbors {
             (neighbor1, neighbor2) 
@@ -213,13 +213,13 @@ mod tests {
         assert!(model.graph[0].iter_neighbors().next().is_none());
     }
 
-    fn build_model() -> (Model<Vec<f64>>, NormalData<Vec<f64>>, NormalData<Vec<f64>>) {
+    fn build_model() -> (Model<Vec<f64>>, GaussianData<Vec<f64>>, GaussianData<Vec<f64>>) {
         let mut model = Model::new(space::euclid_dist);
-        let n1 = NormalData::new(vec![4.], f64::INFINITY, 0.);
+        let n1 = GaussianData::new(vec![4.], f64::INFINITY, 0.);
         model.add_component(n1.clone(), vec![]);
         let p2 = vec![3.];
         let neighborhood = model.get_neighborhood(&p2);
-        let n2 = NormalData::new(p2, 3., 1.);
+        let n2 = GaussianData::new(p2, 3., 1.);
         model.add_component(n2.clone(), neighborhood.get_neighbors());
         (model, n1, n2)
     }

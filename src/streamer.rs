@@ -2,7 +2,7 @@ use std::{error::Error, io, ops::Deref};
 
 use crate::{
     algorithm::Algo,
-    model::{Model, NormalData},
+    model::{Model, GaussianData},
 };
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Map, Value};
@@ -70,7 +70,7 @@ fn serialize_model<Point: PartialEq + Serialize + 'static>(
 }
 
 fn serialize_component<Point: PartialEq + Serialize>(
-    data: impl Deref<Target = NormalData<Point>>,
+    data: impl Deref<Target = GaussianData<Point>>,
 ) -> Map<String, Value> {
     let mut map = Map::new();
     map.insert("mu".into(), json!(data.mu()));
@@ -101,7 +101,7 @@ mod tests {
 
     #[test]
     fn test_serialize_component() {
-        let obj = serialize_component(&NormalData::new(vec![3., 5.1], 4.7, 0.999));
+        let obj = serialize_component(&GaussianData::new(vec![3., 5.1], 4.7, 0.999));
         let json = serde_json::to_string(&obj).unwrap();
         assert_eq!(r#"{"mu":[3.0,5.1],"sigma":4.7,"weight":0.999}"#, json);
     }
