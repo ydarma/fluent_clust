@@ -1,7 +1,7 @@
 use std::{
     error::Error,
     sync::{
-        mpsc::{self, Receiver, Sender, SyncSender},
+        mpsc::{self, Receiver, Sender},
         Arc, Mutex,
     },
     thread::spawn,
@@ -18,7 +18,7 @@ pub fn service<Point: PartialEq + Serialize + DeserializeOwned + 'static>() -> (
     impl Iterator<Item = Result<String, Box<dyn Error>>>,
     impl FnMut(String) -> Result<(), Box<dyn Error>>,
 ) {
-    let (point_producer, point_receiver) = mpsc::sync_channel::<String>(1000);
+    let (point_producer, point_receiver) = mpsc::channel::<String>();
     let (model_producer, model_receiver) = mpsc::channel::<String>();
     spawn(move || start_server(point_producer, model_receiver));
     channels(point_receiver, model_producer)
@@ -39,18 +39,20 @@ fn channels(
     (points, write)
 }
 
-fn start_server(point_producer: SyncSender<String>, model_receiver: Receiver<String>) {
+fn start_server(point_producer: Sender<String>, model_receiver: Receiver<String>) {
     let peers: Arc<Mutex<Vec<Websocket>>> = Arc::new(Mutex::new(vec![]));
     start_dispatcher(peers.clone(), model_receiver);
+    let point_producer = Arc::new(Mutex::new(point_producer));
     rouille::start_server("0.0.0.0:80", move |request: &Request| -> Response {
-        serve(request, peers.clone(), point_producer.clone())
+        let point_producer = point_producer.lock().unwrap().clone();
+        serve(request, peers.clone(), point_producer)
     })
 }
 
 fn serve(
     request: &Request,
     peers: Arc<Mutex<Vec<Websocket>>>,
-    point_producer: SyncSender<String>,
+    point_producer: Sender<String>,
 ) -> Response {
     if request.url().ends_with("/ws/points") {
         handle_point_receiver(&request, point_producer)
@@ -69,13 +71,11 @@ fn handle_model_producer(request: &Request, peers: Arc<Mutex<Vec<Websocket>>>) -
 }
 
 fn register_receiver(peers: Arc<Mutex<Vec<Websocket>>>, ws: Websocket) {
-    match peers.lock() {
-        Ok(mut peers) => peers.push(ws),
-        Err(str) => eprintln!("{}", str),
-    }
+    let mut peers = peers.lock().unwrap();
+    peers.push(ws);
 }
 
-fn handle_point_receiver(request: &Request, point_producer: SyncSender<String>) -> Response {
+fn handle_point_receiver(request: &Request, point_producer: Sender<String>) -> Response {
     let (response, websocket) = try_or_400!(websocket::start(&request, Some("OK")));
     spawn(move || {
         let ws = websocket.recv().unwrap();
@@ -89,7 +89,7 @@ fn handle_point_receiver(request: &Request, point_producer: SyncSender<String>) 
     response
 }
 
-fn read_point(message: websocket::Message, point_producer: &SyncSender<String>) {
+fn read_point(message: websocket::Message, point_producer: &Sender<String>) {
     match message {
         websocket::Message::Text(txt) => match point_producer.send(txt) {
             Err(str) => eprintln!("{:#?}", str),
@@ -104,12 +104,8 @@ fn read_point(message: websocket::Message, point_producer: &SyncSender<String>) 
 fn start_dispatcher(peers: Arc<Mutex<Vec<Websocket>>>, model_receiver: Receiver<String>) {
     spawn(move || {
         for msg in model_receiver {
-            match peers.lock() {
-                Ok(mut peers) => {
-                    peers.retain_mut(|peer| send_model(peer, &msg));
-                }
-                Err(_) => {}
-            }
+            let mut peers = peers.lock().unwrap();
+            peers.retain_mut(|peer| send_model(peer, &msg));
         }
     });
 }
