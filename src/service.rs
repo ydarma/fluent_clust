@@ -5,7 +5,7 @@ use std::{
         mpsc::{self, Receiver, Sender},
         Arc, Mutex,
     },
-    thread::spawn,
+    thread,
 };
 
 use serde::{de::DeserializeOwned, Serialize};
@@ -25,7 +25,7 @@ pub fn service<Point: PartialEq + Serialize + DeserializeOwned + 'static>() -> (
 ) {
     let (point_producer, point_receiver) = mpsc::channel::<String>();
     let (model_producer, model_receiver) = mpsc::channel::<String>();
-    spawn(move || start_server(point_producer, model_receiver));
+    thread::spawn(move || start_server(point_producer, model_receiver));
     streamer::channels(point_receiver, model_producer)
 }
 
@@ -38,16 +38,12 @@ fn start_server(point_producer: Sender<String>, model_receiver: Receiver<String>
 fn start_websockets(peers: Peers, point_producer: Sender<String>) {
     let server = TcpListener::bind("127.0.0.1:9001").unwrap();
     for stream in server.incoming() {
-        let peers = peers.clone();
-        let point_producer = point_producer.clone();
-        spawn(move || {
-            let (path, websocket) = get_websocket(stream);
-            if path.ends_with("/ws/points") {
-                handle_point_receiver(websocket, point_producer)
-            } else if path.ends_with("/ws/model") {
-                handle_model_producer(websocket, peers)
-            }
-        });
+        let (path, websocket) = get_websocket(stream);
+        if path.ends_with("/ws/points") {
+            handle_point_receiver(websocket, point_producer.clone());
+        } else if path.ends_with("/ws/models") {
+            handle_model_producer(websocket, peers.clone());
+        }
     }
 }
 
@@ -67,7 +63,7 @@ fn handle_model_producer(websocket: WebSocket<TcpStream>, peers: Peers) {
 }
 
 fn handle_point_receiver(mut websocket: WebSocket<TcpStream>, point_producer: Sender<String>) {
-    spawn(move || loop {
+    thread::spawn(move || loop {
         let msg = websocket.read_message();
         match msg {
             Ok(message) => {
@@ -102,7 +98,7 @@ fn read_point(message: Message, point_producer: &Sender<String>) -> bool {
 }
 
 fn start_dispatcher(peers: Peers, model_receiver: Receiver<String>) {
-    spawn(move || {
+    thread::spawn(move || {
         for msg in model_receiver {
             let mut peers = peers.lock().unwrap();
             peers.retain_mut(|peer| send_model(peer, msg.clone()));
@@ -119,5 +115,41 @@ fn send_model(peer: &mut WebSocket<TcpStream>, msg: String) -> bool {
         true
     } else {
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::thread;
+
+    use crate::{algorithm::Algo, model::Model, service::service, space, streamer::*};
+    use tungstenite::{connect, Message};
+    use url::Url;
+
+    #[test]
+    fn test_streamer() {
+        thread::spawn(move || {
+            let algo = Algo::new(space::euclid_dist, space::real_combine);
+            let mut model = Model::new(space::euclid_dist);
+            let (points, write) = service::<Vec<f64>>();
+            let streamer = Streamer::new(points, write);
+            Streamer::run(streamer, algo, &mut model).unwrap();
+        });
+        let points_url = "ws://localhost:9001/ws/points";
+        let (mut points_socket, _resp) =
+            connect(Url::parse(points_url).unwrap()).expect("Can't connect");
+        let models_url = "ws://localhost:9001/ws/models";
+        let (mut models_socket, _resp) =
+            connect(Url::parse(models_url).unwrap()).expect("Can't connect");
+        points_socket
+            .write_message(Message::Text("[1.0,1.0]".into()))
+            .unwrap();
+        let result = models_socket.read_message().unwrap();
+        assert_eq!(
+            r#"[{"mu":[1.0,1.0],"sigma":null,"weight":0.0}]"#,
+            result.into_text().unwrap()
+        );
+        models_socket.close(None).unwrap();
+        points_socket.close(None).unwrap();
     }
 }
