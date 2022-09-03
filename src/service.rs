@@ -8,7 +8,6 @@ use std::{
     thread,
 };
 
-use serde::{de::DeserializeOwned, Serialize};
 use tungstenite::{
     accept_hdr,
     handshake::server::{Request, Response},
@@ -19,7 +18,24 @@ use crate::streamer;
 
 type Peers = Arc<Mutex<Vec<WebSocket<TcpStream>>>>;
 
-pub fn service<Point: PartialEq + Serialize + DeserializeOwned + 'static>() -> (
+/// Starts a backend that accepts data on endpoint ws://0.0.0.0:9001/ws/points
+/// ```
+/// use std::{error::Error, io};
+///
+/// use fluent_data::{algorithm::Algo, model::Model, space, streamer::Streamer, service};
+///
+/// fn main() -> Result<(), Box<dyn Error>> {
+///     let algo = Algo::new(space::euclid_dist, space::real_combine);
+///     let mut model = Model::new(space::euclid_dist);
+///     let (points, write) = service::backend();
+///     let streamer = Streamer::new(points, write);
+///     // this will endlessly consume data and produce models...
+///     // Streamer::run(streamer, algo, &mut model)?;
+///     Ok(())
+/// }
+/// ```
+/// and dispatch models on endpoint ws://0.0.0.0:9001/ws/models.
+pub fn backend() -> (
     impl Iterator<Item = Result<String, Box<dyn Error>>>,
     impl FnMut(String) -> Result<(), Box<dyn Error>>,
 ) {
@@ -122,7 +138,7 @@ fn send_model(peer: &mut WebSocket<TcpStream>, msg: String) -> bool {
 mod tests {
     use std::thread;
 
-    use crate::{algorithm::Algo, model::Model, service::service, space, streamer::*};
+    use crate::{algorithm::Algo, model::Model, service::backend, space, streamer::*};
     use tungstenite::{connect, Message};
     use url::Url;
 
@@ -131,7 +147,7 @@ mod tests {
         thread::spawn(move || {
             let algo = Algo::new(space::euclid_dist, space::real_combine);
             let mut model = Model::new(space::euclid_dist);
-            let (points, write) = service::<Vec<f64>>();
+            let (points, write) = backend();
             let streamer = Streamer::new(points, write);
             Streamer::run(streamer, algo, &mut model).unwrap();
         });

@@ -12,7 +12,7 @@ use crate::{
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Map, Value};
 
-/// Reads data form `In` source and write model to `Out` sink.
+/// Reads data form `In` source and writes model to `Out` sink.
 /// ```
 /// use std::{error::Error, io};
 ///
@@ -118,7 +118,7 @@ pub fn channels(
 #[cfg(test)]
 mod tests {
 
-    use std::{sync::mpsc};
+    use std::sync::mpsc;
 
     use crate::{space, streamer::*};
 
@@ -151,14 +151,17 @@ mod tests {
         let mut model = Model::new(space::euclid_dist);
         let points = vec![Ok(String::from("[1.0,1.0]"))].into_iter();
         let mut result = String::new();
-        let write = |s| {result = s; Ok(())};
+        let write = |s| {
+            result = s;
+            Ok(())
+        };
         let streamer = Streamer::new(points, write);
         match Streamer::run(streamer, algo, &mut model) {
             Ok(()) => assert_eq!(r#"[{"mu":[1.0,1.0],"sigma":null,"weight":0.0}]"#, result),
             Err(_) => panic!(),
         };
     }
-    
+
     #[test]
     fn test_channels() {
         let (point_producer, point_receiver) = mpsc::channel();

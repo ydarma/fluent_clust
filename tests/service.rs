@@ -1,4 +1,4 @@
-use fluent_data::{algorithm::Algo, model::Model, service::service, space, streamer::*};
+use fluent_data::{Algo, Model, Streamer, service, space};
 use std::thread;
 use tungstenite::{connect, Message};
 use url::Url;
@@ -17,7 +17,7 @@ fn test_streamer() {
 fn start() {
     let algo = Algo::new(space::euclid_dist, space::real_combine);
     let mut model = Model::new(space::euclid_dist);
-    let (points, write) = service::<Vec<f64>>();
+    let (points, write) = service::backend();
     let streamer = Streamer::new(points, write);
     Streamer::run(streamer, algo, &mut model).unwrap();
 }
