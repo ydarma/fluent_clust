@@ -167,7 +167,7 @@ mod tests {
         let dist = Model::gaussianize_dist(space::euclid_dist);
         let neighbors = components.iter().get_neighborhood(&point, dist);
         let (neighbor1, neighbor2) = if let Neighborhood::Two(neighbor1, neighbor2) = neighbors {
-            (neighbor1, neighbor2) 
+            (neighbor1, neighbor2)
         } else {
             panic!();
         };
@@ -215,7 +215,11 @@ mod tests {
         assert!(model.graph[0].iter_neighbors().next().is_none());
     }
 
-    fn build_model() -> (Model<Vec<f64>>, GaussianData<Vec<f64>>, GaussianData<Vec<f64>>) {
+    fn build_model() -> (
+        Model<Vec<f64>>,
+        GaussianData<Vec<f64>>,
+        GaussianData<Vec<f64>>,
+    ) {
         let mut model = Model::new(space::euclid_dist);
         let n1 = GaussianData::new(vec![4.], f64::INFINITY, 0.);
         model.add_component(n1.clone(), vec![]);

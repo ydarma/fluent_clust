@@ -18,8 +18,11 @@ pub fn euclid_dist(p1: &RealPoint, p2: &RealPoint) -> f64 {
 
 /// Computes real weighted center
 pub fn real_combine(p1: &RealPoint, w1: f64, p2: &RealPoint, w2: f64) -> RealPoint {
-    let w = w1+w2;
-    p1.iter().zip(p2).map(|(x1, x2)| (x1*w1 + x2*w2)/w).collect()
+    let w = w1 + w2;
+    p1.iter()
+        .zip(p2)
+        .map(|(x1, x2)| (x1 * w1 + x2 * w2) / w)
+        .collect()
 }
 
 #[cfg(test)]

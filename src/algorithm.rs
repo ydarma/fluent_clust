@@ -2,7 +2,7 @@
 
 use std::{marker::PhantomData, ops::DerefMut};
 
-use crate::model::{GetNeighbors, Model, GaussianData, GaussianNode};
+use crate::model::{GaussianData, GaussianNode, GetNeighbors, Model};
 
 const EXTRA_THRESHOLD: f64 = 25.;
 const INTRA_THRESHOLD: f64 = 16.;
@@ -61,11 +61,11 @@ impl<Point: PartialEq + 'static> Algo<Point> {
     pub fn fit<'a>(&'a self, model: &'a mut Model<Point>, point: Point) {
         let neighborhood = model.get_neighborhood(&point);
         match neighborhood.first() {
-            None =>  {
+            None => {
                 self.init(model, point);
             }
             Some(candidate) => {
-                let(vertex, maybe_neighbor) = self.update(model, candidate, point, &neighborhood);
+                let (vertex, maybe_neighbor) = self.update(model, candidate, point, &neighborhood);
                 if let Some(maybe_neighbor) = maybe_neighbor {
                     self.update_local_graph(candidate, maybe_neighbor);
                 };
@@ -174,7 +174,8 @@ impl<Point: PartialEq + 'static> Algo<Point> {
         candidate: GaussianNode<Point>,
     ) -> Vec<GaussianNode<Point>> {
         let current_point = &vertex.deref_data().mu;
-        let dist_to_current = |p: &GaussianNode<Point>| (self.dist)(&p.deref_data().mu, &current_point);
+        let dist_to_current =
+            |p: &GaussianNode<Point>| (self.dist)(&p.deref_data().mu, &current_point);
 
         let candidate_dist = dist_to_current(&candidate);
         for i in 0..MAX_NEIGHBORS {
@@ -211,7 +212,11 @@ impl<Point: PartialEq + 'static> Algo<Point> {
     }
 
     /// Decides if two components are close enough to merge.
-    fn should_merge(&self, first: &GaussianNode<Point>, second: &GaussianNode<Point>) -> (bool, f64) {
+    fn should_merge(
+        &self,
+        first: &GaussianNode<Point>,
+        second: &GaussianNode<Point>,
+    ) -> (bool, f64) {
         let current_data = first.deref_data();
         let neighbor_data = second.deref_data();
         let d = (self.dist)(&current_data.mu, &neighbor_data.mu);
@@ -222,7 +227,12 @@ impl<Point: PartialEq + 'static> Algo<Point> {
     /// Merge two components.
     /// The new center is the weighted center of the component centers
     /// and the new variance is the weighted average of the components variances.
-    fn merge_components(&self, vertex: &GaussianNode<Point>, neighbor: &GaussianNode<Point>, d: f64) {
+    fn merge_components(
+        &self,
+        vertex: &GaussianNode<Point>,
+        neighbor: &GaussianNode<Point>,
+        d: f64,
+    ) {
         let mut current_data = vertex.deref_data_mut();
         let mut neighbor_data = neighbor.deref_data_mut();
         current_data.mu = (self.combine)(
@@ -383,7 +393,7 @@ mod tests {
             vec![31., -3.],
             vec![10., -9.],
             vec![6., -4.],
-            vec![-2., -5.]
+            vec![-2., -5.],
         ]
     }
 }

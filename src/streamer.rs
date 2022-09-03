@@ -1,5 +1,5 @@
 //! The [Streamer] continuously consumes data points and produces models.
-//! 
+//!
 //! This module also provides the [stdio] function that builds
 //! a point iterator that reads the standard input and a
 //! write closure that writes to the standard output.

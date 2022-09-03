@@ -1,4 +1,4 @@
-use fluent_data::{Algo, Model, Streamer, service, space};
+use fluent_data::{service, space, Algo, Model, Streamer};
 use std::thread;
 use tungstenite::{connect, Message};
 use url::Url;

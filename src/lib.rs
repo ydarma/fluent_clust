@@ -67,7 +67,7 @@
 //!     streamer
 //! }
 //! ```
-//! 
+//!
 //! Alternatively, the library provides a backend that
 //! receive data points from websockets and send models to websockets.
 //! To achieve this, just replace the point iterator and
@@ -86,7 +86,7 @@
 //!     Streamer::new(points, write)
 //! }
 //! ```
-//! 
+//!
 //! An executable program is also provided by this crate:
 //!  - `fluent_data`
 //!    - reads point from standard input and writes models to standard output,

@@ -5,13 +5,14 @@
 //! which can be changed by setting the `PORT`environment variable.
 
 use std::{
+    env,
     error::Error,
     net::{TcpListener, TcpStream},
     sync::{
         mpsc::{self, Receiver, Sender},
         Arc, Mutex,
     },
-    thread, env,
+    thread,
 };
 
 use tungstenite::{

@@ -26,7 +26,7 @@ where
 #[derive(PartialEq, Debug)]
 pub enum Neighborhood<Model, RefModel>
 where
-    RefModel: Deref<Target = Model>
+    RefModel: Deref<Target = Model>,
 {
     Two(NeighborDist<Model, RefModel>, NeighborDist<Model, RefModel>),
     One(NeighborDist<Model, RefModel>),
