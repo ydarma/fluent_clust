@@ -28,7 +28,7 @@
 //! use std::error::Error;
 //! use fluent_data::{streamer, Streamer};
 //!
-//! fn build_streamer() -> Streamer<
+//! fn get_streamer() -> Streamer<
 //!     impl Iterator<Item = Result<String, Box<dyn Error>>>,
 //!     impl FnMut(String) -> Result<(), Box<dyn Error>>,
 //! >
@@ -77,7 +77,7 @@
 //! use std::error::Error;
 //! use fluent_data::{service, Streamer};
 //!
-//! fn build_streamer() -> Streamer<
+//! fn get_streamer() -> Streamer<
 //!     impl Iterator<Item = Result<String, Box<dyn Error>>>,
 //!     impl FnMut(String) -> Result<(), Box<dyn Error>>,
 //! >
@@ -140,7 +140,7 @@
 //!    todo!()
 //! }
 //! 
-//! fn build_streamer() -> Streamer<
+//! fn get_streamer() -> Streamer<
 //!     impl Iterator<Item = Result<String, Box<dyn Error>>>,
 //!     impl FnMut(String) -> Result<(), Box<dyn Error>>,
 //! >

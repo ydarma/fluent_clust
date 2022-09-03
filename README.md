@@ -51,7 +51,7 @@ See [the crate documentation](https://docs.rs/fluent_data/latest/fluent_data/).
 
 # Customizing the algorithm
 
-See [the customization section of the crate documentation](https://docs.rs/fluent_data/latest/fluent_data/index.html#customization)
+See [the customization section of the crate documentation](https://docs.rs/fluent_data/latest/fluent_data/index.html#customization).
 
 # How it works
 Given a mixed model fitted from data points received so far, whe the new point `P` arrives:
