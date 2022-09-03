@@ -3,8 +3,6 @@ use std::thread;
 use tungstenite::{connect, Message};
 use url::Url;
 
-#[path = "./utilities.rs"]
-mod utilities;
 use utilities::{assert_results, get_point_iter};
 
 #[test]

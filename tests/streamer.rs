@@ -1,7 +1,5 @@
 use fluent_data::{algorithm::Algo, model::Model, space, streamer::*};
 
-#[path = "./utilities.rs"]
-mod utilities;
 use utilities::{assert_results, get_point_iter};
 
 #[test]
