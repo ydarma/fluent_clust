@@ -1,3 +1,7 @@
+//! This module defines the necessary functions to run algorithm for data points that belongs to R^n
+//!  - the Euclidian distance function
+//!  - the vectorial barycentre function
+
 /// A point in real space
 pub type RealPoint = Vec<f64>;
 

@@ -6,7 +6,7 @@
 //!  - a function that computes a distance between points
 //!  - a function that computes the wighted center of two points
 //!  
-//! Theese functions are used to construct the [Algo] and [Model] objects,
+//! Theese functions are used to construct the [Algo] and [Model] structs,
 //! that represents respectively the algorithm and the mixed Gaussian model.
 //!
 //! ```
@@ -19,7 +19,7 @@
 //! }
 //! ```
 //!
-//! The [Streamer] object enlessly consumes data points and produce models. the streamer needs:
+//! The [Streamer] enlessly consumes data points and produce models. the streamer needs:
 //!  - a point iterator that produces points consumed by the streamer.
 //!  - a write closure that consumes models produced by the streamer.
 //! The [streamer::stdio] functions builds an iterator that reads standard input

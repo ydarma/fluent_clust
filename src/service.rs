@@ -1,3 +1,9 @@
+//! A backend that receives data points from websockets and dispatches models to websockets.
+//!
+//! Use the [backend] function to start the service.
+//! The backend starts listening on port 9001 by default
+//! which can be changed by setting the `PORT`environment variable.
+
 use std::{
     error::Error,
     net::{TcpListener, TcpStream},
@@ -5,7 +11,7 @@ use std::{
         mpsc::{self, Receiver, Sender},
         Arc, Mutex,
     },
-    thread,
+    thread, env,
 };
 
 use tungstenite::{
@@ -19,6 +25,7 @@ use crate::streamer;
 type Peers = Arc<Mutex<Vec<WebSocket<TcpStream>>>>;
 
 /// Starts a backend that accepts data on endpoint ws://0.0.0.0:9001/ws/points
+/// and dispatch models on endpoint ws://0.0.0.0:9001/ws/models.
 /// ```
 /// use std::{error::Error, io};
 ///
@@ -34,7 +41,7 @@ type Peers = Arc<Mutex<Vec<WebSocket<TcpStream>>>>;
 ///     Ok(())
 /// }
 /// ```
-/// and dispatch models on endpoint ws://0.0.0.0:9001/ws/models.
+/// The port can be changed by setting the `PORT` environment variable.
 pub fn backend() -> (
     impl Iterator<Item = Result<String, Box<dyn Error>>>,
     impl FnMut(String) -> Result<(), Box<dyn Error>>,
@@ -52,7 +59,9 @@ fn start_server(point_producer: Sender<String>, model_receiver: Receiver<String>
 }
 
 fn start_websockets(peers: Peers, point_producer: Sender<String>) {
-    let server = TcpListener::bind("127.0.0.1:9001").unwrap();
+    let port = env::var("PORT").unwrap_or(String::from("9001"));
+    let endpoint = format!("127.0.0.1:{}", port);
+    let server = TcpListener::bind(endpoint).unwrap();
     for stream in server.incoming() {
         let (path, websocket) = get_websocket(stream);
         if path.ends_with("/ws/points") {

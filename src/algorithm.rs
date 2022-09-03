@@ -1,3 +1,5 @@
+//! The [Algo] struct implements the algorithm that fits mixed Gaussian models from data point streams.
+
 use std::{marker::PhantomData, ops::DerefMut};
 
 use crate::model::{GetNeighbors, Model, GaussianData, GaussianNode};
@@ -9,7 +11,8 @@ const DECAY_FACTOR: f64 = 0.95;
 const DECAY_THRESHOLD: f64 = 1E-2;
 const MAX_NEIGHBORS: usize = 2;
 
-/// The algorithm that fits incoming point to a gaussian mixture model.
+/// The algorithm that fits online incoming points to a gaussian mixture model.
+///
 /// The algorithm can fit any kind of points in a space that:
 ///  - defines the distance between two points,
 ///  - defines the weighted center of two points.

@@ -1,3 +1,5 @@
+//! The [Model] struct represents the mixed Gaussian model fited by the algorithm.
+
 use std::ops::Deref;
 
 use crate::{
@@ -37,7 +39,7 @@ impl<Point: PartialEq> GaussianData<Point> {
 
 pub type GaussianNode<Point> = Vertex<GaussianData<Point>>;
 
-/// Represents a mixed gaussian model.
+/// A mixed gaussian model.
 pub struct Model<Point: PartialEq> {
     pub(crate) dist: Box<dyn Fn(&Point, &GaussianData<Point>) -> f64>,
     pub(crate) graph: Vec<GaussianNode<Point>>,
