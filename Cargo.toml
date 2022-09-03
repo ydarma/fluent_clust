@@ -5,6 +5,7 @@ edition = "2021"
 keywords = ["data science", "algorithm"]
 description = "A low footprint streaming data modelization library and service."
 license = "MIT"
+repository = "https://github.com/ydarma/fluent_data"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
