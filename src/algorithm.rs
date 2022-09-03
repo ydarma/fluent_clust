@@ -4,9 +4,9 @@ use crate::model::{GetNeighbors, Model, GaussianData, GaussianNode};
 
 const EXTRA_THRESHOLD: f64 = 25.;
 const INTRA_THRESHOLD: f64 = 16.;
-const MERGE_THRESHOLD: f64 = 4.;
-const DECAY_FACTOR: f64 = 0.999;
-const DECAY_THRESHOLD: f64 = 1E-6;
+const MERGE_THRESHOLD: f64 = 1.;
+const DECAY_FACTOR: f64 = 0.95;
+const DECAY_THRESHOLD: f64 = 1E-2;
 const MAX_NEIGHBORS: usize = 2;
 
 /// The algorithm that fits incoming point to a gaussian mixture model.
@@ -32,7 +32,7 @@ const MAX_NEIGHBORS: usize = 2;
 /// let first = components.next().unwrap();
 /// assert_eq!(&vec![6., -4.], first.mu());
 /// assert_eq!(110., first.sigma());
-/// assert_eq!(2., first.weight());
+/// assert!(first.weight() < 2.001 && first.weight() > 1.999);
 /// ```
 pub struct Algo<Point: PartialEq + 'static> {
     dist: Box<dyn Fn(&Point, &Point) -> f64>,
@@ -249,6 +249,8 @@ impl<Point: PartialEq + 'static> Algo<Point> {
 
 #[cfg(test)]
 mod tests {
+    use approx_eq::assert_approx_eq;
+
     use crate::algorithm::*;
     use crate::space;
 
@@ -269,7 +271,7 @@ mod tests {
         let first = components.next().unwrap();
         assert_eq!(dataset[1], first.mu);
         assert_eq!(20., first.sigma);
-        assert_eq!(1., first.weight);
+        assert_approx_eq!(1., first.weight);
     }
 
     #[test]
@@ -279,11 +281,11 @@ mod tests {
         let first = components.next().unwrap();
         assert_eq!(dataset[1], first.mu);
         assert_eq!(20., first.sigma);
-        assert_eq!(DECAY_FACTOR, first.weight);
+        assert_approx_eq!(DECAY_FACTOR, first.weight);
         let second = components.next().unwrap();
         assert_eq!(vec![18.5, -16.5], second.mu);
         assert_eq!(15.68, second.sigma);
-        assert_eq!(1., second.weight);
+        assert_approx_eq!(1., second.weight);
     }
 
     #[test]
@@ -339,7 +341,7 @@ mod tests {
 
     #[test]
     fn test_merge() {
-        let (_dataset, model) = build_model(7);
+        let (_dataset, model) = build_model(8);
         let mut components = model.iter_components();
         let first = components.next().unwrap();
         let second = components.next().unwrap();
@@ -376,8 +378,9 @@ mod tests {
             vec![15., -13.],
             vec![11., 23.],
             vec![31., -3.],
-            vec![11., -11.],
-            vec![6., -6.],
+            vec![10., -9.],
+            vec![6., -4.],
+            vec![-2., -5.]
         ]
     }
 }

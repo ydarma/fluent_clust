@@ -22,7 +22,6 @@ fn test_streamer() {
     match Streamer::run(streamer, algo, &mut model) {
         Ok(()) => {
             let re = Regex::new(OUT_PATTERN).unwrap();
-            println!("{:#?}", result);
             assert!(result.iter().all(|r| re.is_match(r)));
         }
         Err(_) => {
