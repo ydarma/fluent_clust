@@ -1,4 +1,3 @@
-
 use std::error::Error;
 
 use approx_eq::assert_approx_eq;

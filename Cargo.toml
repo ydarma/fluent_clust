@@ -3,14 +3,18 @@ name = "fluent_data"
 version = "0.1.0"
 edition = "2021"
 keywords = ["data science", "algorithm"]
+description = "A low footprint streaming data modelization library and service."
+license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 approx_eq = "0.1.8"
 clap = { version = "3.2.20", features = ["derive"] }
+rand = "0.8.5"
+rand_distr = "0.4.3"
+regex = "1.6.0"
 serde = "1.0.144"
 serde_json = "1.0.85"
 tungstenite = "0.17.3"
 url = "2.2.2"
-utilities = { path = "utilities" }

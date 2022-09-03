@@ -147,11 +147,13 @@ version = "0.1.0"
 dependencies = [
  "approx_eq",
  "clap",
+ "rand",
+ "rand_distr",
+ "regex",
  "serde",
  "serde_json",
  "tungstenite",
  "url",
- "utilities",
 ]
 
 [[package]]
@@ -586,18 +588,6 @@ name = "utf-8"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09cc8ee72d2a9becf2f2febe0205bbed8fc6615b7cb429ad062dc7b7ddd036a9"
-
-[[package]]
-name = "utilities"
-version = "0.1.0"
-dependencies = [
- "approx_eq",
- "rand",
- "rand_distr",
- "regex",
- "serde",
- "serde_json",
-]
 
 [[package]]
 name = "version_check"
