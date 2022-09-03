@@ -1,5 +1,6 @@
 use std::{
     error::Error,
+    net::{TcpListener, TcpStream},
     sync::{
         mpsc::{self, Receiver, Sender},
         Arc, Mutex,
@@ -7,14 +8,16 @@ use std::{
     thread::spawn,
 };
 
-use rouille::{
-    try_or_400,
-    websocket::{self, Websocket},
-    Request, Response,
-};
 use serde::{de::DeserializeOwned, Serialize};
+use tungstenite::{
+    accept_hdr,
+    handshake::server::{Request, Response},
+    Message, WebSocket,
+};
 
 use crate::streamer;
+
+type Peers = Arc<Mutex<Vec<WebSocket<TcpStream>>>>;
 
 pub fn service<Point: PartialEq + Serialize + DeserializeOwned + 'static>() -> (
     impl Iterator<Item = Result<String, Box<dyn Error>>>,
@@ -27,77 +30,89 @@ pub fn service<Point: PartialEq + Serialize + DeserializeOwned + 'static>() -> (
 }
 
 fn start_server(point_producer: Sender<String>, model_receiver: Receiver<String>) {
-    let peers: Arc<Mutex<Vec<Websocket>>> = Arc::new(Mutex::new(vec![]));
+    let peers: Peers = Arc::new(Mutex::new(vec![]));
     start_dispatcher(peers.clone(), model_receiver);
-    start_http(peers.clone(), point_producer);
+    start_websockets(peers.clone(), point_producer);
 }
 
-fn start_http(peers: Arc<Mutex<Vec<Websocket>>>, point_producer: Sender<String>) {
-    let point_producer = Arc::new(Mutex::new(point_producer));
-    rouille::start_server("0.0.0.0:8080", move |request: &Request| -> Response {
-        if request.url().ends_with("/ws/points") {
-            handle_point_receiver(&request, point_producer.lock().unwrap().clone())
-        } else if request.url().ends_with("/ws/model") {
-            handle_model_producer(&request, peers.clone())
-        } else {
-            Response::empty_404()
-        }
-    });
-}
-
-fn handle_model_producer(request: &Request, peers: Arc<Mutex<Vec<Websocket>>>) -> Response {
-    let (response, websocket) = try_or_400!(websocket::start(&request, Some("OK")));
-    match websocket.recv() {
-        Ok(websocket) => register_receiver(peers, websocket),
-        Err(reason) => eprintln!("{}", reason),
+fn start_websockets(peers: Peers, point_producer: Sender<String>) {
+    let server = TcpListener::bind("127.0.0.1:9001").unwrap();
+    for stream in server.incoming() {
+        let peers = peers.clone();
+        let point_producer = point_producer.clone();
+        spawn(move || {
+            let (path, websocket) = get_websocket(stream);
+            if path.ends_with("/ws/points") {
+                handle_point_receiver(websocket, point_producer)
+            } else if path.ends_with("/ws/model") {
+                handle_model_producer(websocket, peers)
+            }
+        });
     }
-    response
 }
 
-fn register_receiver(peers: Arc<Mutex<Vec<Websocket>>>, websocket: Websocket) {
+fn get_websocket(stream: Result<TcpStream, std::io::Error>) -> (String, WebSocket<TcpStream>) {
+    let mut path: String = String::new();
+    let callback = |req: &Request, response: Response| {
+        path = String::from(req.uri().path());
+        Ok(response)
+    };
+    let websocket = accept_hdr(stream.unwrap(), callback).unwrap();
+    (path, websocket)
+}
+
+fn handle_model_producer(websocket: WebSocket<TcpStream>, peers: Peers) {
     let mut peers = peers.lock().unwrap();
     peers.push(websocket);
 }
 
-fn handle_point_receiver(request: &Request, point_producer: Sender<String>) -> Response {
-    let (response, websocket) = try_or_400!(websocket::start(&request, Some("OK")));
-    spawn(move || {
-        match websocket.recv() {
-            Ok(mut websocket) => {
-                while let Some(message) = websocket.next() {
-                    read_point(message, &point_producer);
+fn handle_point_receiver(mut websocket: WebSocket<TcpStream>, point_producer: Sender<String>) {
+    spawn(move || loop {
+        let msg = websocket.read_message();
+        match msg {
+            Ok(message) => {
+                if !read_point(message, &point_producer) {
+                    break;
                 }
             }
-            Err(reason) => eprint!("{}", reason),
+            Err(reason) => {
+                eprint!("{}", reason);
+                break;
+            }
         };
     });
-    response
 }
 
-fn read_point(message: websocket::Message, point_producer: &Sender<String>) {
+fn read_point(message: Message, point_producer: &Sender<String>) -> bool {
     match message {
-        websocket::Message::Text(txt) => match point_producer.send(txt) {
-            Err(reason) => eprintln!("{:#?}", reason),
-            _ => {}
-        },
-        websocket::Message::Binary(_) => {
-            eprintln!("unsupported binary message.");
+        Message::Text(txt) => {
+            match point_producer.send(txt) {
+                Err(reason) => eprintln!("{:#?}", reason),
+                _ => {}
+            }
+            true
         }
+        Message::Binary(_) => {
+            eprintln!("unsupported binary message.");
+            true
+        }
+        Message::Close(_) => false,
+        _ => true,
     }
 }
 
-fn start_dispatcher(peers: Arc<Mutex<Vec<Websocket>>>, model_receiver: Receiver<String>) {
+fn start_dispatcher(peers: Peers, model_receiver: Receiver<String>) {
     spawn(move || {
         for msg in model_receiver {
             let mut peers = peers.lock().unwrap();
-            peers.retain_mut(|peer| send_model(peer, &msg));
+            peers.retain_mut(|peer| send_model(peer, msg.clone()));
         }
     });
 }
 
-fn send_model(peer: &mut Websocket, msg: &String) -> bool {
-    if !peer.is_closed() {
-        match peer.send_text(&msg) {
+fn send_model(peer: &mut WebSocket<TcpStream>, msg: String) -> bool {
+    if peer.can_write() {
+        match peer.write_message(Message::Text(msg)) {
             Err(reason) => eprintln!("{:#?}", reason),
             _ => {}
         };
