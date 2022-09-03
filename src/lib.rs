@@ -86,6 +86,15 @@
 //!     Streamer::new(points, write)
 //! }
 //! ```
+//! 
+//! An executable program is also provided by this crate:
+//!  - `fluent_data`
+//!    - reads point from standard input and writes models to standard output,
+//!  - `fluent_data --service`
+//!    - starts a server, receives point from websockets and dispatch models to websockets,
+//!  - `fluent_data --help`
+//!    - display the executable usage documentation.
+
 pub mod algorithm;
 pub mod model;
 pub mod service;

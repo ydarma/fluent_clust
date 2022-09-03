@@ -6,11 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+approx_eq = "0.1.8"
+clap = { version = "3.2.20", features = ["derive"] }
 serde = "1.0.144"
 serde_json = "1.0.85"
 tungstenite = "0.17.3"
 url = "2.2.2"
-
-[dev_dependencies]
-approx_eq = "0.1.8"
 utilities = { path = "utilities" }
