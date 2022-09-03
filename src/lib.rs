@@ -87,6 +87,68 @@
 //! }
 //! ```
 //!
+//! ## Customization
+//! The algorithm can use other distance than the Euclidean distance.
+//! You'll have to write your own distance function and create `Algo` and `Model` structs:
+//! ```
+//! use serde::{Deserialize, Serialize};
+//! use serde_json::Result;
+//! use fluent_data::{Model, Algo, space};
+//! 
+//! #[derive(Serialize, Deserialize, PartialEq)]
+//! struct Point {
+//!   //...
+//! }
+//! 
+//! /// Return the SQUARE of the distance between p1 and p2
+//! fn distance(p1: &Point, p2: &Point) -> f64 {
+//!   todo!()
+//! }
+//! 
+//! /// Return the weighted center of p1 x w1 and p2 x w2
+//! fn combine(p1: &Point, w1: f64, p2: &Point, w2: f64) -> Point {
+//!   todo!()
+//! }
+//! 
+//! fn get_algo_model() -> (Algo<Point>, Model<Point>) {
+//!     let algo = Algo::new(distance, combine);
+//!     let model = Model::new(distance);
+//!     (algo, model)
+//! }
+//! ```
+//!
+//! You can also modify the way data points are received and models are sent:
+//! ```
+//! use std::error::Error;
+//! use fluent_data::{service, Streamer};
+//!
+//! /// Produce data points
+//! struct PointIterator {
+//!   //...
+//! }
+//!
+//! impl Iterator for PointIterator {
+//!     type Item = Result<String, Box<dyn Error>>;
+//! 
+//!     fn next(&mut self) -> Option<Self::Item> {
+//!         todo!()
+//!     }
+//! }
+//!
+//! /// Send models
+//! fn write_model(model: String) -> Result<(), Box<dyn Error>> {
+//!    todo!()
+//! }
+//! 
+//! fn build_streamer() -> Streamer<
+//!     impl Iterator<Item = Result<String, Box<dyn Error>>>,
+//!     impl FnMut(String) -> Result<(), Box<dyn Error>>,
+//! >
+//! {
+//!     Streamer::new(PointIterator{}, write_model)
+//! }
+//! ```
+//!
 //! An executable program is also provided by this crate:
 //!  - `fluent_data`
 //!    - reads point from standard input and writes models to standard output,
