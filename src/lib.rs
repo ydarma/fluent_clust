@@ -149,6 +149,7 @@
 //! }
 //! ```
 //!
+//! ## Binary executable
 //! An executable program is also provided by this crate:
 //!  - `fluent_data`
 //!    - reads point from standard input and writes models to standard output,
