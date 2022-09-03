@@ -118,12 +118,57 @@ pub fn channels(
 #[cfg(test)]
 mod tests {
 
-    use crate::streamer::*;
+    use std::{sync::mpsc};
+
+    use crate::{space, streamer::*};
 
     #[test]
     fn test_serialize_component() {
         let obj = serialize_component(&GaussianData::new(vec![3., 5.1], 4.7, 0.999));
         let json = serde_json::to_string(&obj).unwrap();
         assert_eq!(r#"{"mu":[3.0,5.1],"sigma":4.7,"weight":0.999}"#, json);
+    }
+
+    #[test]
+    fn test_serialize_model() {
+        let mut model = Model::new(space::euclid_dist);
+        let v = model.add_component(GaussianData::new(vec![3., 5.1], 4.7, 0.999), vec![]);
+        model.add_component(
+            GaussianData::new(vec![1.2, 6.], 1.3, 3.998),
+            vec![v.as_neighbor()],
+        );
+        let obj = serialize_model(&model);
+        let json = serde_json::to_string(&obj).unwrap();
+        assert_eq!(
+            r#"[{"mu":[3.0,5.1],"sigma":4.7,"weight":0.999},{"mu":[1.2,6.0],"sigma":1.3,"weight":3.998}]"#,
+            json
+        );
+    }
+
+    #[test]
+    fn test_streamer() {
+        let algo = Algo::new(space::euclid_dist, space::real_combine);
+        let mut model = Model::new(space::euclid_dist);
+        let points = vec![Ok(String::from("[1.0,1.0]"))].into_iter();
+        let mut result = String::new();
+        let write = |s| {result = s; Ok(())};
+        let streamer = Streamer::new(points, write);
+        match Streamer::run(streamer, algo, &mut model) {
+            Ok(()) => assert_eq!(r#"[{"mu":[1.0,1.0],"sigma":null,"weight":0.0}]"#, result),
+            Err(_) => panic!(),
+        };
+    }
+    
+    #[test]
+    fn test_channels() {
+        let (point_producer, point_receiver) = mpsc::channel();
+        let (model_producer, model_receiver) = mpsc::channel();
+        let (mut points, mut write) = channels(point_receiver, model_producer);
+        point_producer.send(String::from("point")).unwrap();
+        let p = points.next().unwrap().unwrap();
+        assert_eq!("point", p);
+        (write)(String::from("model")).unwrap();
+        let m = model_receiver.recv().unwrap();
+        assert_eq!("model", m);
     }
 }

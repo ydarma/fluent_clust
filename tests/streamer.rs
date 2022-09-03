@@ -24,8 +24,6 @@ fn test_streamer() {
             let re = Regex::new(OUT_PATTERN).unwrap();
             assert!(result.iter().all(|r| re.is_match(r)));
         }
-        Err(_) => {
-            assert!(false)
-        }
+        Err(_) => panic!(),
     };
 }
