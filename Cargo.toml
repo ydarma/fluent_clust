@@ -2,7 +2,7 @@
 name = "fluent_data"
 version = "0.1.0"
 edition = "2021"
-keywords = ["data science", "algorithm"]
+keywords = ["datascience", "algorithm"]
 description = "A low footprint streaming data modelization library and service."
 license = "MIT"
 repository = "https://github.com/ydarma/fluent_data"
