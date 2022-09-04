@@ -1,3 +1,7 @@
+//! This module defines the neighborhood of some point in space.
+//!
+//! To get neighbors of a point, use [GetNeighborhood::get_neighborhood] method.
+
 use std::{mem::swap, ops::Deref};
 
 /// A reference to a neighbor and its distance from some point in space.
@@ -22,7 +26,9 @@ where
     }
 }
 
-/// The two nearest neighbors when they exist.
+/// The two nearest neighbors of some point in space when they exist.
+///
+/// The neighborhood consists in two, one or none neighbor.
 #[derive(PartialEq, Debug)]
 pub enum Neighborhood<Model, RefModel>
 where
@@ -35,7 +41,21 @@ where
 
 /// Defines a two nearest neighbors getter function.
 ///
-/// This trait is implemented by stucts that represents a set of models in a space of `Point`.
+/// This trait is implemented by stucts that represents a set of `Model` in a space of `Point`.
+/// ```
+/// use fluent_data::{space, neighborhood::{GetNeighborhood, Neighborhood}};
+/// fn main() {
+///   let points = vec![vec![0.], vec![2.], vec![5.]];
+///   let neighborhood = points.iter().get_neighborhood(&vec![3.], space::euclid_dist);
+///   if let Neighborhood::Two(n1, n2) = neighborhood {
+///       assert_eq!(&points[1], n1.coord());
+///       assert_eq!(1., n1.dist());
+///       assert_eq!(&points[2], n2.coord());
+///       assert_eq!(4., n2.dist()); // square dist
+///   } else {
+///       panic!()
+///   }
+/// }
 pub trait GetNeighborhood<Point, Model, RefModel, Dist>
 where
     Dist: Fn(&Point, &Model) -> f64,

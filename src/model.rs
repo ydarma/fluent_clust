@@ -1,5 +1,8 @@
 //! The [Model] struct represents the set of balls model.
-
+//!
+//! The model can be loaded with existing balls by the [Model::load] method.
+//! It can also be used to predict the balls that most probably contains a given point
+//! by using the [Model::predict] method.
 use std::ops::Deref;
 
 use crate::{
@@ -18,7 +21,11 @@ pub struct BallData<Point: PartialEq> {
 impl<Point: PartialEq> BallData<Point> {
     /// Builds a new ball.
     pub fn new(center: Point, radius: f64, weight: f64) -> Self {
-        BallData { center, radius, weight }
+        BallData {
+            center,
+            radius,
+            weight,
+        }
     }
 
     /// Ball center.
@@ -59,6 +66,18 @@ impl<Point: PartialEq + 'static> Model<Point> {
     }
 
     /// Load an existing model.
+    /// ```
+    /// use fluent_data::{Model, model::BallData, space};
+    ///
+    /// fn main() {
+    ///     let data = vec![
+    ///         BallData::new(vec![4.], 3., 1.),
+    ///         BallData::new(vec![5.], 2., 2.),
+    ///         BallData::new(vec![3.], 3., 3.),
+    ///     ];
+    ///     let model = Model::load(space::euclid_dist, data);
+    /// }
+    /// ```
     pub fn load<Dist>(space_dist: Dist, data: Vec<BallData<Point>>) -> Self
     where
         Dist: Fn(&Point, &Point) -> f64 + 'static,
@@ -75,7 +94,20 @@ impl<Point: PartialEq + 'static> Model<Point> {
                 .get_neighborhood(&vertex.deref_data().center, |v1, v2| {
                     (model.dist)(v1, &v2.deref_data())
                 });
-            let neighbors = Model::get_neighbors(neighborhood);
+            let neighbors = {
+                let mut neighbors = vec![];
+                match neighborhood {
+                    Neighborhood::Two(n1, n2) => {
+                        neighbors.push(Vertex::clone(n1.coord()));
+                        neighbors.push(Vertex::clone(n2.coord()));
+                    }
+                    Neighborhood::One(n1) => {
+                        neighbors.push(Vertex::clone(n1.coord()));
+                    }
+                    Neighborhood::None => {}
+                }
+                neighbors
+            };
             vertex.set_neighbors(neighbors.iter().map(|v| v.as_neighbor()).collect());
         }
         model
@@ -89,23 +121,14 @@ impl<Point: PartialEq + 'static> Model<Point> {
         move |p1: &Point, p2: &BallData<Point>| space_dist(p1, &p2.center) / p2.radius
     }
 
-    /// Get the balls which the given point most probably belongs to.
-    pub fn get_neighborhood(&self, point: &Point) -> Vec<BallNode<Point>> {
+    /// Get the vertices associated to balls which the given point most probably belongs to.
+    pub(crate) fn get_neighborhood(&self, point: &Point) -> Vec<BallNode<Point>> {
+        let mut neighbors = vec![];
         let neighborhood = self
             .graph
             .iter()
             .get_neighborhood(point, |p, m| (self.dist)(p, &*m.deref_data()));
-        Self::get_neighbors(neighborhood)
-    }
 
-    /// Extracts `Neighbor` instance for a `Neighborhood`
-    fn get_neighbors<RefNode>(
-        neighborhood: Neighborhood<BallNode<Point>, RefNode>,
-    ) -> Vec<BallNode<Point>>
-    where
-        RefNode: Deref<Target = BallNode<Point>>,
-    {
-        let mut neighbors = vec![];
         match neighborhood {
             Neighborhood::Two(n1, n2) => {
                 neighbors.push(Vertex::clone(n1.coord()));
@@ -134,14 +157,42 @@ impl<Point: PartialEq + 'static> Model<Point> {
     }
 
     /// Gets an iterator over the balls of this model.
-    pub fn iter_balls(
-        &self,
-    ) -> impl Iterator<Item = impl Deref<Target = BallData<Point>> + '_> {
+    pub fn iter_balls(&self) -> impl Iterator<Item = impl Deref<Target = BallData<Point>> + '_> {
         self.graph.iter().map(|v| v.deref_data())
+    }
+
+    /// Gets the balls that most probably include the given point.
+    /// ```
+    /// use fluent_data::{Model, model::BallData, space, neighborhood::{GetNeighborhood, Neighborhood}};
+    ///
+    /// fn main() {
+    ///     let data = vec![
+    ///         BallData::new(vec![4.], 3., 1.),
+    ///         BallData::new(vec![5.], 2., 2.),
+    ///         BallData::new(vec![3.], 3., 3.),
+    ///     ];
+    ///     let model = Model::load(space::euclid_dist, data.clone());
+    ///     let neighborhood = model.predict(&vec![6.]);
+    ///     if let Neighborhood::Two(n1, n2) = neighborhood {
+    ///         assert_eq!(&data[1], n1.coord());
+    ///         assert_eq!(1./2., n1.dist());
+    ///         assert_eq!(&data[0], n2.coord());
+    ///         assert_eq!(4./3., n2.dist());
+    ///     } else {
+    ///         panic!()
+    ///     }
+    /// }
+    /// ```
+    pub fn predict(
+        &self,
+        point: &Point,
+    ) -> Neighborhood<BallData<Point>, impl Deref<Target = BallData<Point>> + '_> {
+        self.iter_balls()
+            .get_neighborhood(point, |p, m| (self.dist)(p, m))
     }
 }
 
-pub trait GetNeighbors<Point: PartialEq> {
+pub(crate) trait GetNeighbors<Point: PartialEq> {
     fn get_neighbors(&self) -> Vec<Neighbor<BallData<Point>>>;
 }
 
@@ -206,21 +257,9 @@ mod tests {
     #[test]
     fn test_load_model() {
         let data = vec![
-            BallData::<Vec<f64>> {
-                center: vec![4.],
-                radius: 3.,
-                weight: 1.,
-            },
-            BallData::<Vec<f64>> {
-                center: vec![5.],
-                radius: 2.,
-                weight: 2.,
-            },
-            BallData::<Vec<f64>> {
-                center: vec![3.],
-                radius: 3.,
-                weight: 3.,
-            },
+            BallData::new(vec![4.], 3., 1.),
+            BallData::new(vec![5.], 2., 2.),
+            BallData::new(vec![3.], 3., 3.),
         ];
         let model = Model::load(space::euclid_dist, data.clone());
         let mut n1 = model.graph[0].iter_neighbors();
@@ -234,11 +273,7 @@ mod tests {
         assert!(n3.next().unwrap().deref_data().eq(&data[1]));
     }
 
-    fn build_model() -> (
-        Model<Vec<f64>>,
-        BallData<Vec<f64>>,
-        BallData<Vec<f64>>,
-    ) {
+    fn build_model() -> (Model<Vec<f64>>, BallData<Vec<f64>>, BallData<Vec<f64>>) {
         let mut model = Model::new(space::euclid_dist);
         let n1 = BallData::new(vec![4.], f64::INFINITY, 0.);
         model.add_ball(n1.clone(), vec![]);
@@ -247,5 +282,24 @@ mod tests {
         let n2 = BallData::new(p2, 3., 1.);
         model.add_ball(n2.clone(), neighborhood.get_neighbors());
         (model, n1, n2)
+    }
+
+    #[test]
+    fn test_predict() {
+        let data = vec![
+            BallData::new(vec![4.], 3., 1.),
+            BallData::new(vec![5.], 2., 2.),
+            BallData::new(vec![3.], 3., 3.),
+        ];
+        let model = Model::load(space::euclid_dist, data.clone());
+        let neighborhood = model.predict(&vec![6.]);
+        if let Neighborhood::Two(n1, n2) = neighborhood {
+            assert_eq!(&data[1], n1.coord());
+            assert_eq!(1. / 2., n1.dist());
+            assert_eq!(&data[0], n2.coord());
+            assert_eq!(4. / 3., n2.dist());
+        } else {
+            panic!()
+        }
     }
 }

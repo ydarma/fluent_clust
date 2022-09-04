@@ -163,7 +163,10 @@ mod tests {
         };
         let streamer = Streamer::new(points, write);
         match Streamer::run(streamer, algo, &mut model) {
-            Ok(()) => assert_eq!(r#"[{"center":[1.0,1.0],"radius":null,"weight":0.0}]"#, result),
+            Ok(()) => assert_eq!(
+                r#"[{"center":[1.0,1.0],"radius":null,"weight":0.0}]"#,
+                result
+            ),
             Err(_) => panic!(),
         };
     }

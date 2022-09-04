@@ -120,20 +120,12 @@ impl<Point: PartialEq + 'static> Algo<Point> {
     }
 
     /// Updates the ball center to the weighted center of point ansd the ball.
-    fn update_mu(
-        &self,
-        ball: &impl DerefMut<Target = BallData<Point>>,
-        point: Point,
-    ) -> Point {
+    fn update_mu(&self, ball: &impl DerefMut<Target = BallData<Point>>, point: Point) -> Point {
         (self.combine)(&ball.center, ball.weight, &point, 1.)
     }
 
     /// Updates the ball radius using the distance between the point and the ball center.
-    fn update_sigma(
-        &self,
-        ball: &impl DerefMut<Target = BallData<Point>>,
-        dist: f64,
-    ) -> f64 {
+    fn update_sigma(&self, ball: &impl DerefMut<Target = BallData<Point>>, dist: f64) -> f64 {
         if ball.weight == 0. {
             dist
         } else {
@@ -212,11 +204,7 @@ impl<Point: PartialEq + 'static> Algo<Point> {
     }
 
     /// Decides if two balls are close enough to merge.
-    fn should_merge(
-        &self,
-        first: &BallNode<Point>,
-        second: &BallNode<Point>,
-    ) -> (bool, f64) {
+    fn should_merge(&self, first: &BallNode<Point>, second: &BallNode<Point>) -> (bool, f64) {
         let current_data = first.deref_data();
         let neighbor_data = second.deref_data();
         let d = (self.dist)(&current_data.center, &neighbor_data.center);
@@ -227,12 +215,7 @@ impl<Point: PartialEq + 'static> Algo<Point> {
     /// Merge two balls.
     /// The new center is the weighted center of the ball centers
     /// and the new radius is the weighted average of the balls variances.
-    fn merge_balls(
-        &self,
-        vertex: &BallNode<Point>,
-        neighbor: &BallNode<Point>,
-        d: f64,
-    ) {
+    fn merge_balls(&self, vertex: &BallNode<Point>, neighbor: &BallNode<Point>, d: f64) {
         let mut current_data = vertex.deref_data_mut();
         let mut neighbor_data = neighbor.deref_data_mut();
         current_data.center = (self.combine)(
