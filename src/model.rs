@@ -1,4 +1,4 @@
-//! The [Model] struct represents the set of ballsmodel.
+//! The [Model] struct represents the set of balls model.
 
 use std::ops::Deref;
 
@@ -7,7 +7,7 @@ use crate::{
     neighborhood::{GetNeighborhood, Neighborhood},
 };
 
-/// Ball.
+/// A ball in the set of balls model.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BallData<Point: PartialEq> {
     pub(crate) center: Point,
@@ -40,7 +40,7 @@ impl<Point: PartialEq> BallData<Point> {
 /// A graph node which represents a ball.
 pub(crate) type BallNode<Point> = Vertex<BallData<Point>>;
 
-/// A set of ballsmodel.
+/// A set of balls model.
 pub struct Model<Point: PartialEq> {
     pub(crate) dist: Box<dyn Fn(&Point, &BallData<Point>) -> f64>,
     pub(crate) graph: Vec<BallNode<Point>>,

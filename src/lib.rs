@@ -5,9 +5,9 @@
 //!  - a function that computes the weighted center of two points
 //!  
 //! Theese functions are used to construct the [Algo] and [Model] structs,
-//! that respectively represent the algorithm and the set of ballsmodel.
+//! that respectively represent the algorithm and the set of balls model.
 //! Each ball is described by its center, radius and weight
-//! (the decayed number of point that were included in the ball).
+//! (the decayed number of points that were included in the ball).
 //!
 //! ```
 //! use fluent_data::{Model, Algo, space};

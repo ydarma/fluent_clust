@@ -4,7 +4,8 @@ A low footprint streaming data modelization library and service.
 
 The algorithm reads data points from an input stream, fits the model and sends the updated model to an output stream.
 
-The online algorithm fits a model that consist in a set of balls. Each of each is described by its center, radius and weight.
+The online algorithm fits a model that consists in a set of balls. Each of each is described by its center, radius and weight
+(the decayed number of points that were included in the ball).
 
 # Install and run the program
 Install :

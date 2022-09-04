@@ -1,4 +1,4 @@
-//! The [Algo] struct implements the algorithm that fits a set of ballsmodel from data point streams.
+//! The [Algo] struct implements the algorithm that fits a set of balls model from data point streams.
 
 use std::{marker::PhantomData, ops::DerefMut};
 
@@ -11,7 +11,7 @@ const DECAY_FACTOR: f64 = 0.95;
 const DECAY_THRESHOLD: f64 = 1E-2;
 const MAX_NEIGHBORS: usize = 2;
 
-/// Fits incoming points to a set of ballsmodel.
+/// Fits incoming points to a set of balls model.
 ///
 /// The algorithm can fit any kind of points in a space that:
 ///  - defines the distance between two points,
