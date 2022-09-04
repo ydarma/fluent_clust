@@ -115,14 +115,6 @@ impl<Point: PartialEq + 'static> Model<Point> {
     ) -> impl Iterator<Item = impl Deref<Target = GaussianData<Point>> + '_> {
         self.graph.iter().map(|v| v.deref_data())
     }
-
-    /// Mutate the model components in sequence. The closure should return `true` to retain the components or `false` to discard it.
-    pub(crate) fn iter_components_mut<F>(&mut self, mut f: F)
-    where
-        F: FnMut(&mut GaussianData<Point>) -> bool,
-    {
-        self.graph.retain(|v| f(&mut *v.deref_data_mut()))
-    }
 }
 
 pub trait GetNeighbors<Point: PartialEq> {
@@ -185,34 +177,6 @@ mod tests {
         assert_eq!(&n1, c1);
         let c2 = &*components.next().unwrap();
         assert_eq!(&n2, c2);
-    }
-
-    #[test]
-    fn test_model_update_component() {
-        let (mut model, n1, n2) = build_model();
-        model.iter_components_mut(|component| {
-            component.weight *= 0.95;
-            true
-        });
-        let mut components = model.iter_components();
-        let c1 = &*components.next().unwrap();
-        assert_eq!(n1.weight * 0.95, c1.weight);
-        let c2 = &*components.next().unwrap();
-        assert_eq!(n2.weight * 0.95, c2.weight);
-    }
-
-    #[test]
-    fn test_model_remove_component() {
-        let (mut model, _n1, n2) = build_model();
-        model.iter_components_mut(|component| component.weight != 0.);
-        let mut components = model.iter_components();
-        let c1 = &*components.next().unwrap();
-        assert_eq!(&n2, c1);
-        let c2 = components.next();
-        assert!(c2.is_none());
-        assert_eq!(1, model.graph.len());
-        assert_eq!(&n2, &*model.graph[0].deref_data());
-        assert!(model.graph[0].iter_neighbors().next().is_none());
     }
 
     fn build_model() -> (

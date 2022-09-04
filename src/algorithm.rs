@@ -252,10 +252,11 @@ impl<Point: PartialEq + 'static> Algo<Point> {
     /// Decrease the weight of all components by applying decay factor.
     /// Remove components which weight is too low.
     fn decay(&self, model: &mut Model<Point>, vertex: GaussianNode<Point>) {
-        vertex.deref_data_mut().weight /= DECAY_FACTOR;
-        model.iter_components_mut(|v| {
-            v.weight *= DECAY_FACTOR;
-            v.weight > DECAY_THRESHOLD
+        model.graph.retain(|v| {
+            if v.deref_data().ne(&vertex.deref_data()) {
+                v.deref_data_mut().weight *= DECAY_FACTOR;
+            }
+            v.deref_data().weight > DECAY_THRESHOLD
         })
     }
 }
@@ -284,7 +285,7 @@ mod tests {
         let first = components.next().unwrap();
         assert_eq!(dataset[1], first.mu);
         assert_eq!(20., first.sigma);
-        assert_approx_eq!(1., first.weight);
+        assert_eq!(1., first.weight);
     }
 
     #[test]
@@ -298,7 +299,7 @@ mod tests {
         let second = components.next().unwrap();
         assert_eq!(vec![18.5, -16.5], second.mu);
         assert_eq!(15.68, second.sigma);
-        assert_approx_eq!(1., second.weight);
+        assert_eq!(1., second.weight);
     }
 
     #[test]
