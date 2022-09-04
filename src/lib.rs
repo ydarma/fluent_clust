@@ -12,7 +12,7 @@
 //! ```
 //! use fluent_data::{Model, Algo, space};
 //!
-//! fn build_algorithm() -> (Model<Vec<f64>>, Algo<Vec<f64>>) {
+//! fn get_algorithm() -> (Model<Vec<f64>>, Algo<Vec<f64>>) {
 //!     let algo = Algo::new(space::euclid_dist, space::real_combine);
 //!     let model = Model::new(space::euclid_dist);
 //!     (model, algo)
@@ -149,6 +149,19 @@
 //! }
 //! ```
 //!
+//! ## Loading an existing model
+//! The generated models could be saved to a persistent store by writing a custom write closure (see section above).
+//! A saved model may be loaded at system startup thanks to [Model::load].
+//! ```
+//! use fluent_data::{Model, Algo, space, model::GaussianData};
+//!
+//! fn get_algorithm(data: Vec<GaussianData<Vec<f64>>>) -> (Model<Vec<f64>>, Algo<Vec<f64>>) {
+//!     let algo = Algo::new(space::euclid_dist, space::real_combine);
+//!     let model = Model::load(space::euclid_dist, data);
+//!     (model, algo)
+//! }
+//! ```
+//! 
 //! ## Binary executable
 //! An executable program is also provided by this crate:
 //!  - `fluent_data`
