@@ -1,7 +1,7 @@
 //! The [Streamer] continuously consumes data points and produces models.
 //!
 //! This module also provides the [stdio] function that builds
-//! a point iterator that reads the standard input and a
+//! a point iterator which reads the standard input and a
 //! write closure that writes to the standard output.
 
 use std::{
@@ -18,7 +18,7 @@ use crate::{
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Map, Value};
 
-/// Reads data form `In` source and writes model to `Out` sink.
+/// Reads data from `In` and writes model to `Out`.
 /// ```
 /// use std::{error::Error, io};
 ///
@@ -62,8 +62,8 @@ where
             let point_str = input?;
             let point: Point = serde_json::from_str(&point_str)?;
             algo.fit(model, point);
-            let components = serialize_model(model);
-            let output = serde_json::to_string(&components)?;
+            let balls = serialize_model(model);
+            let output = serde_json::to_string(&balls)?;
             (streamer.write)(output)?;
         }
         Ok(())
@@ -73,14 +73,14 @@ where
 fn serialize_model<Point: PartialEq + Serialize + 'static>(
     model: &Model<Point>,
 ) -> Vec<Map<String, Value>> {
-    let components: Vec<_> = model
-        .iter_components()
-        .map(|data| serialize_component(data))
+    let balls: Vec<_> = model
+        .iter_balls()
+        .map(|data| serialize_ball(data))
         .collect();
-    components
+    balls
 }
 
-fn serialize_component<Point: PartialEq + Serialize>(
+fn serialize_ball<Point: PartialEq + Serialize>(
     data: impl Deref<Target = BallData<Point>>,
 ) -> Map<String, Value> {
     let mut map = Map::new();
@@ -129,8 +129,8 @@ mod tests {
     use crate::{space, streamer::*};
 
     #[test]
-    fn test_serialize_component() {
-        let obj = serialize_component(&BallData::new(vec![3., 5.1], 4.7, 0.999));
+    fn test_serialize_ball() {
+        let obj = serialize_ball(&BallData::new(vec![3., 5.1], 4.7, 0.999));
         let json = serde_json::to_string(&obj).unwrap();
         assert_eq!(r#"{"center":[3.0,5.1],"radius":4.7,"weight":0.999}"#, json);
     }
@@ -138,8 +138,8 @@ mod tests {
     #[test]
     fn test_serialize_model() {
         let mut model = Model::new(space::euclid_dist);
-        let v = model.add_component(BallData::new(vec![3., 5.1], 4.7, 0.999), vec![]);
-        model.add_component(
+        let v = model.add_ball(BallData::new(vec![3., 5.1], 4.7, 0.999), vec![]);
+        model.add_ball(
             BallData::new(vec![1.2, 6.], 1.3, 3.998),
             vec![v.as_neighbor()],
         );

@@ -33,7 +33,7 @@ fluent_data
 [{"center":[6.7297134962820016,-6.8681649994430005],"radius":241.4742325873156,"weight":4.6762809375},{"center":[13.5,28.5],"radius":23.36,"weight":0.81450625},{"center":[34.125,0.375],"radius":13.54,"weight":0.857375}]
 ```
 
-A model is represented as a json array with an object for each component:
+A model is represented as a json array with an object for each ball:
  - `center` is the center of the ball,
  - `radius` is the radius of the ball,
  - `weight` is the weight of the ball (the probability is obtained by dividing the weight by the sum of weights).
@@ -91,20 +91,20 @@ Given a set of balls fitted from data points received so far, whe the new point 
    - otherwise a new ball `B'` is created:
      - the radius is set to 1/5 of the distance from `P` to `C` (`1/5 CP`),
      - the center `C'` is set to a distance from `C` equal to 6 times the radius of `B'` (`CC' = 6/5 CP`),
-     - the weight of the component is set to 1.
+     - the weight of the ball is set to 1.
  - (II) In the first case above, the two balls `B` and `B2` of centers `C` and `C2` that most probably include `P` are merged into a single ball if their distance is
    less than the sum of their radius:
      - the radius is the weighted average of the radius of `B` and `B2`, plus the distance `CC2`,
      - the center is the weighted average of the centers of `C` and `C2`,
      - the weight is the sum of the weights.
  - (III) The weight of all alls but the one which `P` belongs to are decayed with a factor of 0.95.
-   - All components which weight are lower than 1/100 are removed.
+   - All balls which weight are lower than 1/100 are removed.
  
  ## About the implementation
- The model is represented in memory with a graph which vertices are model component.
- Edges links the 2 nearest neighbors of each components (i.e. the two components that could be most probably the same).
+ The model is represented in memory with a graph which vertices are model balls.
+ Edges links the 2 nearest neighbors of each balls (i.e. the two balls that could be most probably the same).
  
  The graph is maintained in memory:
-   - When a new component is created, its two most probable components become the new vertice neighbors.
-   - When the incoming point is merged the component neighborhood is recomputed using
-     the second most probable component of the incoming point which can be interspersed in the current neighborhood.
+   - When a new ball is created, its two most probable balls become the new vertice neighbors.
+   - When the incoming point is merged the ball neighborhood is recomputed using
+     the second most probable ball of the incoming point which can be interspersed in the current neighborhood.

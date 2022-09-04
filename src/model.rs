@@ -1,4 +1,4 @@
-//! The [Model] struct represents the set of ball model fited by the algorithm.
+//! The [Model] struct represents the set of ballsmodel.
 
 use std::ops::Deref;
 
@@ -7,7 +7,7 @@ use crate::{
     neighborhood::{GetNeighborhood, Neighborhood},
 };
 
-/// Parameters of a ball component.
+/// Ball.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BallData<Point: PartialEq> {
     pub(crate) center: Point,
@@ -16,37 +16,38 @@ pub struct BallData<Point: PartialEq> {
 }
 
 impl<Point: PartialEq> BallData<Point> {
-    /// Builds a new ball component.
+    /// Builds a new ball.
     pub fn new(center: Point, radius: f64, weight: f64) -> Self {
         BallData { center, radius, weight }
     }
 
-    /// Center.
+    /// Ball center.
     pub fn center(&self) -> &Point {
         &self.center
     }
 
-    /// Radius.
+    /// Ball radius.
     pub fn radius(&self) -> f64 {
         self.radius
     }
 
-    /// Weight
+    /// Ball weight.
     pub fn weight(&self) -> f64 {
         self.weight
     }
 }
 
-pub type BallNode<Point> = Vertex<BallData<Point>>;
+/// A graph node which represents a ball.
+pub(crate) type BallNode<Point> = Vertex<BallData<Point>>;
 
-/// A set of ball model.
+/// A set of ballsmodel.
 pub struct Model<Point: PartialEq> {
     pub(crate) dist: Box<dyn Fn(&Point, &BallData<Point>) -> f64>,
     pub(crate) graph: Vec<BallNode<Point>>,
 }
 
 impl<Point: PartialEq + 'static> Model<Point> {
-    /// Builds a new model.
+    /// Build a new model.
     pub fn new<Dist>(space_dist: Dist) -> Self
     where
         Dist: Fn(&Point, &Point) -> f64 + 'static,
@@ -57,14 +58,14 @@ impl<Point: PartialEq + 'static> Model<Point> {
         }
     }
 
-    /// Loads an existing model.
+    /// Load an existing model.
     pub fn load<Dist>(space_dist: Dist, data: Vec<BallData<Point>>) -> Self
     where
         Dist: Fn(&Point, &Point) -> f64 + 'static,
     {
         let mut model = Self::new(space_dist);
-        for component in data {
-            model.add_component(component, vec![]);
+        for ball in data {
+            model.add_ball(ball, vec![]);
         }
         for vertex in model.graph.iter() {
             let neighborhood = model
@@ -88,7 +89,7 @@ impl<Point: PartialEq + 'static> Model<Point> {
         move |p1: &Point, p2: &BallData<Point>| space_dist(p1, &p2.center) / p2.radius
     }
 
-    /// Get the components which the given points most probably belongs to.
+    /// Get the balls which the given point most probably belongs to.
     pub fn get_neighborhood(&self, point: &Point) -> Vec<BallNode<Point>> {
         let neighborhood = self
             .graph
@@ -118,22 +119,22 @@ impl<Point: PartialEq + 'static> Model<Point> {
         neighbors
     }
 
-    /// Add a new component or ball to the model.
-    /// Components neighbors are generally already known,
+    /// Add a new ball or ball to the model.
+    /// Balls neighbors are generally already known,
     /// thus in order to avoid unecessary calls to `Self.get_neighborhood` they are also passed.
-    pub(crate) fn add_component(
+    pub(crate) fn add_ball(
         &mut self,
-        component: BallData<Point>,
+        ball: BallData<Point>,
         neighbors: Vec<Neighbor<BallData<Point>>>,
     ) -> BallNode<Point> {
-        let vertex = Vertex::new(component);
+        let vertex = Vertex::new(ball);
         vertex.set_neighbors(neighbors);
         self.graph.push(vertex.clone());
         vertex
     }
 
-    /// Gets an iterator over the model components.
-    pub fn iter_components(
+    /// Gets an iterator over the balls of this model.
+    pub fn iter_balls(
         &self,
     ) -> impl Iterator<Item = impl Deref<Target = BallData<Point>> + '_> {
         self.graph.iter().map(|v| v.deref_data())
@@ -173,32 +174,32 @@ mod tests {
 
     #[test]
     fn test_model_find_neighbors() {
-        let components = vec![
+        let balls = vec![
             BallData::new(vec![1.], 4., 11.),
             BallData::new(vec![2.], 2., 1.),
             BallData::new(vec![6.], 1., 7.),
         ];
         let point = vec![4.];
         let dist = Model::normalize(space::euclid_dist);
-        let neighbors = components.iter().get_neighborhood(&point, dist);
+        let neighbors = balls.iter().get_neighborhood(&point, dist);
         let (neighbor1, neighbor2) = if let Neighborhood::Two(neighbor1, neighbor2) = neighbors {
             (neighbor1, neighbor2)
         } else {
             panic!();
         };
-        assert_eq!(&components[1], neighbor1.coord());
+        assert_eq!(&balls[1], neighbor1.coord());
         assert_eq!(2., neighbor1.dist());
-        assert_eq!(&components[0], neighbor2.coord());
+        assert_eq!(&balls[0], neighbor2.coord());
         assert_eq!(2.25, neighbor2.dist());
     }
 
     #[test]
-    fn test_model_add_component() {
+    fn test_model_add_ball() {
         let (model, n1, n2) = build_model();
-        let mut components = model.iter_components();
-        let c1 = &*components.next().unwrap();
+        let mut balls = model.iter_balls();
+        let c1 = &*balls.next().unwrap();
         assert_eq!(&n1, c1);
-        let c2 = &*components.next().unwrap();
+        let c2 = &*balls.next().unwrap();
         assert_eq!(&n2, c2);
     }
 
@@ -240,11 +241,11 @@ mod tests {
     ) {
         let mut model = Model::new(space::euclid_dist);
         let n1 = BallData::new(vec![4.], f64::INFINITY, 0.);
-        model.add_component(n1.clone(), vec![]);
+        model.add_ball(n1.clone(), vec![]);
         let p2 = vec![3.];
         let neighborhood = model.get_neighborhood(&p2);
         let n2 = BallData::new(p2, 3., 1.);
-        model.add_component(n2.clone(), neighborhood.get_neighbors());
+        model.add_ball(n2.clone(), neighborhood.get_neighbors());
         (model, n1, n2)
     }
 }

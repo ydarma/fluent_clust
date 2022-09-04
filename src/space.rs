@@ -1,11 +1,11 @@
-//! This module defines the necessary functions to run algorithm for data points that belongs to R^n.
+//! This module defines the necessary functions to run the algorithm for data points that belong to R^n.
 //!  - the Euclidian distance function
 //!  - the vectorial barycentre function
 
-/// A point in real space
+/// A point in R^n.
 pub type RealPoint = Vec<f64>;
 
-/// Conputes Euclidian distance
+/// Conputes Euclidian distance in R^n.
 pub fn euclid_dist(p1: &RealPoint, p2: &RealPoint) -> f64 {
     p1.iter()
         .zip(p2)
@@ -16,7 +16,7 @@ pub fn euclid_dist(p1: &RealPoint, p2: &RealPoint) -> f64 {
         .sum()
 }
 
-/// Computes real weighted center
+/// Computes weighted center in a R^n vector space.
 pub fn real_combine(p1: &RealPoint, w1: f64, p2: &RealPoint, w2: f64) -> RealPoint {
     let w = w1 + w2;
     p1.iter()

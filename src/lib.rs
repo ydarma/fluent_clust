@@ -1,14 +1,13 @@
-//! This library provides an online algorithm to fit streaming data into as a set of balls.
-//! Components covariances are supposed to be zero, i.e. for a given component dimensions are independant from each other.
-//! Theese are very strong hypothesis, thus the algorithm is not suited to all kind of data.
+//! This library provides an online algorithm to fit streaming data into a set of balls.
 //!
-//! The algorithm uses two functions that can be custom :
-//!  - a function that computes a distance between points
-//!  - a function that computes the wighted center of two points
+//! The algorithm needs two functions that can be customized :
+//!  - a function that computes a distance between two points
+//!  - a function that computes the weighted center of two points
 //!  
 //! Theese functions are used to construct the [Algo] and [Model] structs,
-//! that represents respectively the algorithm and the ball model.
-//! Each ball is described by its center, radius and weight.
+//! that respectively represent the algorithm and the set of ballsmodel.
+//! Each ball is described by its center, radius and weight
+//! (the decayed number of point that were included in the ball).
 //!
 //! ```
 //! use fluent_data::{Model, Algo, space};
@@ -20,10 +19,11 @@
 //! }
 //! ```
 //!
-//! The [Streamer] enlessly consumes data points and produce models. the streamer needs:
-//!  - a point iterator that produces points consumed by the streamer.
+//! The [Streamer] enlessly consumes data points and produce models. It needs:
+//!  - a point iterator that produces points consumed by the streamer,
 //!  - a write closure that consumes models produced by the streamer.
-//! The [streamer::stdio] functions builds an iterator that reads standard input
+//!
+//! The [streamer::stdio] function builds an iterator that reads standard input
 //! and a write closure that writes to standard input.
 //! ```
 //! use std::error::Error;
@@ -39,7 +39,7 @@
 //! }
 //! ```
 //!
-//! Then the [Streamer::run] will run the algorithm and fit the model continuously,
+//! In the example below the [Streamer::run] method runs the algorithm and fit the model continuously,
 //! consuming data points from standard input and producing models to standard output.
 //! ```
 //! use std::{error::Error};
@@ -71,7 +71,7 @@
 //!
 //! Alternatively, the library provides a backend that
 //! receive data points from websockets and send models to websockets.
-//! To achieve this, just replace the point iterator and
+//! Just replace the point iterator and
 //! the model write closure when building the streamer: use those provided by
 //! the [service::backend] method.
 //! ```
@@ -118,7 +118,8 @@
 //! }
 //! ```
 //!
-//! You can also modify the way data points are received and models are sent:
+//! You can also modify the way data points are received and models are sent
+//! by writing your own itertor and write closure (or function):
 //! ```
 //! use std::error::Error;
 //! use fluent_data::{service, Streamer};
@@ -170,7 +171,7 @@
 //!     impl FnMut(String) -> Result<(), Box<dyn Error>>,
 //! >
 //! {
-//!     let (points, write) = service::backend();
+//!     let (points, mut write) = service::backend();
 //!     let decorated_write = move |model| {
 //!         // save model to persistent store
 //!         todo!();
@@ -183,9 +184,9 @@
 //! ## Binary executable
 //! An executable program is also provided by this crate:
 //!  - `fluent_data`
-//!    - reads point from standard input and writes models to standard output,
+//!    - reads R^n points from standard input and writes models to standard output,
 //!  - `fluent_data --service`
-//!    - starts a server, receives point from websockets and dispatch models to websockets,
+//!    - starts a server, receives R^n points from websockets and dispatch models to websockets,
 //!  - `fluent_data --help`
 //!    - display the executable usage documentation.
 //!    
