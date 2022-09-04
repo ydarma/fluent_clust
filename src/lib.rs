@@ -157,6 +157,8 @@
 //!    - starts a server, receives point from websockets and dispatch models to websockets,
 //!  - `fluent_data --help`
 //!    - display the executable usage documentation.
+//!    
+//! See the project (README on crates.io)[https://crates.io/crates/fluent_data] for more information.
 
 pub mod algorithm;
 pub mod model;
