@@ -53,12 +53,14 @@ pub fn backend() -> (
     streamer::channels(point_receiver, model_producer)
 }
 
+/// Starts the model dispatcher and the websocket server.
 fn start_server(point_producer: Sender<String>, model_receiver: Receiver<String>) {
     let peers: Peers = Arc::new(Mutex::new(vec![]));
     start_dispatcher(peers.clone(), model_receiver);
     start_websockets(peers.clone(), point_producer);
 }
 
+/// Starts the server that will accept websocket connections and listen for points.
 fn start_websockets(peers: Peers, point_producer: Sender<String>) {
     let port = env::var("PORT").unwrap_or(String::from("9001"));
     let endpoint = format!("127.0.0.1:{}", port);
@@ -73,6 +75,7 @@ fn start_websockets(peers: Peers, point_producer: Sender<String>) {
     }
 }
 
+/// Gets the websocket struct and the associated query path.
 fn get_websocket(stream: Result<TcpStream, std::io::Error>) -> (String, WebSocket<TcpStream>) {
     let mut path: String = String::new();
     let callback = |req: &Request, response: Response| {
@@ -83,11 +86,13 @@ fn get_websocket(stream: Result<TcpStream, std::io::Error>) -> (String, WebSocke
     (path, websocket)
 }
 
+/// Registers that the peer ask for receiving models on dispatch.
 fn handle_model_producer(websocket: WebSocket<TcpStream>, peers: Peers) {
     let mut peers = peers.lock().unwrap();
     peers.push(websocket);
 }
 
+/// Handles point listening and send them to the algorithm using the `point_producer` channel.
 fn handle_point_receiver(mut websocket: WebSocket<TcpStream>, point_producer: Sender<String>) {
     thread::spawn(move || loop {
         let msg = websocket.read_message();
@@ -105,6 +110,7 @@ fn handle_point_receiver(mut websocket: WebSocket<TcpStream>, point_producer: Se
     });
 }
 
+/// Gets the point and send it to the algorithm.
 fn read_point(message: Message, point_producer: &Sender<String>) -> bool {
     match message {
         Message::Text(txt) => {
@@ -123,15 +129,51 @@ fn read_point(message: Message, point_producer: &Sender<String>) -> bool {
     }
 }
 
+/// Starts the dispatcher that will handle peers which asked for receiving models on dispatch.
 fn start_dispatcher(peers: Peers, model_receiver: Receiver<String>) {
     thread::spawn(move || {
-        for msg in model_receiver {
-            let mut peers = peers.lock().unwrap();
-            peers.retain_mut(|peer| send_model(peer, msg.clone()));
-        }
-    });
+        loop {
+        let msg = model_receiver.try_recv();
+        let mut peers = peers.lock().unwrap();
+        peers.retain_mut(|peer| try_send_model(peer, &msg));
+    }
+});
 }
 
+/// Handle messages received by the peer. If peer is still alive send the model if any.
+fn try_send_model(
+    peer: &mut WebSocket<TcpStream>,
+    msg: &Result<String, mpsc::TryRecvError>,
+) -> bool {
+    peer.can_read()
+        && drain(peer)
+        && if let Ok(msg) = &msg {
+            send_model(peer, msg.clone())
+        } else {
+            true
+        }
+}
+
+/// Drain all messages sent by peer, retruns false if `Close` message was received.
+fn drain(peer: &mut WebSocket<TcpStream>) -> bool {
+    let mut buf = [0; 1];
+    let get_ref = &peer.get_ref();
+    get_ref.set_nonblocking(true).unwrap();
+    if let Ok(_) = get_ref.peek(&mut buf) {
+        let get_ref = &peer.get_ref();
+        get_ref.set_nonblocking(false).unwrap();
+        match peer.read_message() {
+            Ok(Message::Close(_)) => false,
+            _ => drain(peer),
+        }
+    } else {
+        let get_ref = &peer.get_ref();
+        get_ref.set_nonblocking(false).unwrap();
+        true
+    }
+}
+
+/// Sends the message ti the peer.
 fn send_model(peer: &mut WebSocket<TcpStream>, msg: String) -> bool {
     if peer.can_write() {
         match peer.write_message(Message::Text(msg)) {
