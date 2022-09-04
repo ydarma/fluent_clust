@@ -1,4 +1,4 @@
-//! A backend that receives data points from websockets and dispatches models to websockets.
+//! A [backend] that receives data points from websockets and dispatches models to websockets.
 //!
 //! Use the [backend] function to start the service.
 //! The backend starts listening on port 9001 by default

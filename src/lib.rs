@@ -12,7 +12,7 @@
 //! ```
 //! use fluent_data::{Model, Algo, space};
 //!
-//! fn get_algorithm() -> (Model<Vec<f64>>, Algo<Vec<f64>>) {
+//! fn get_algo_model() -> (Model<Vec<f64>>, Algo<Vec<f64>>) {
 //!     let algo = Algo::new(space::euclid_dist, space::real_combine);
 //!     let model = Model::new(space::euclid_dist);
 //!     (model, algo)
@@ -150,15 +150,32 @@
 //! ```
 //!
 //! ## Loading an existing model
-//! The generated models could be saved to a persistent store by writing a custom write closure (see section above).
+//! The generated models could be saved to a persistent store by writing a custom write closure
+//! or decorating an existing one (see section above).
 //! A saved model may be loaded at system startup thanks to [Model::load].
 //! ```
 //! use fluent_data::{Model, Algo, space, model::GaussianData};
+//! use fluent_data::{service, Streamer};
+//! use std::error::Error;
 //!
-//! fn get_algorithm(data: Vec<GaussianData<Vec<f64>>>) -> (Model<Vec<f64>>, Algo<Vec<f64>>) {
+//! fn get_algo_model(data: Vec<GaussianData<Vec<f64>>>) -> (Model<Vec<f64>>, Algo<Vec<f64>>) {
 //!     let algo = Algo::new(space::euclid_dist, space::real_combine);
 //!     let model = Model::load(space::euclid_dist, data);
 //!     (model, algo)
+//! }
+//!
+//! fn get_streamer() -> Streamer<
+//!     impl Iterator<Item = Result<String, Box<dyn Error>>>,
+//!     impl FnMut(String) -> Result<(), Box<dyn Error>>,
+//! >
+//! {
+//!     let (points, write) = service::backend();
+//!     let decorated_write = move |model| {
+//!         // save model to persistent store
+//!         todo!();
+//!         write(model)
+//!     };
+//!     Streamer::new(points, decorated_write)
 //! }
 //! ```
 //! 
