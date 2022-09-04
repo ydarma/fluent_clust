@@ -7,7 +7,7 @@ use regex::Regex;
 use serde_json::{json, Value};
 
 const OUT_PATTERN: &str =
-    r#"^\[(\{"mu":\[[-0-9.]*\],"sigma":(null|[0-9.]*),"weight":[0-9.]*\},?)*\]$"#;
+    r#"^\[(\{"center":\[[-0-9.]*\],"radius":(null|[0-9.]*),"weight":[0-9.]*\},?)*\]$"#;
 
 pub fn assert_results(result: Vec<String>) {
     let re = Regex::new(OUT_PATTERN).unwrap();
@@ -17,13 +17,13 @@ pub fn assert_results(result: Vec<String>) {
 
 pub fn assert_final_result(m: &String) {
     let final_result: Vec<Value> = serde_json::from_str(m).unwrap();
-    let mu = final_result[0]["mu"].as_array().unwrap()[0]
+    let center = final_result[0]["center"].as_array().unwrap()[0]
         .as_f64()
         .unwrap();
-    let sigma = final_result[0]["sigma"].as_f64().unwrap();
+    let radius = final_result[0]["radius"].as_f64().unwrap();
     let weight = final_result[0]["weight"].as_f64().unwrap();
-    assert_approx_eq!(mu, 2.0, 5E-2);
-    assert_approx_eq!(sigma, 9.0, 5E-2);
+    assert_approx_eq!(center, 2.0, 5E-2);
+    assert_approx_eq!(radius, 9.0, 5E-2);
     assert_approx_eq!(weight, 10000., 1E-1);
 }
 

@@ -13,7 +13,7 @@ use std::{
 
 use crate::{
     algorithm::Algo,
-    model::{GaussianData, Model},
+    model::{BallData, Model},
 };
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Map, Value};
@@ -81,11 +81,11 @@ fn serialize_model<Point: PartialEq + Serialize + 'static>(
 }
 
 fn serialize_component<Point: PartialEq + Serialize>(
-    data: impl Deref<Target = GaussianData<Point>>,
+    data: impl Deref<Target = BallData<Point>>,
 ) -> Map<String, Value> {
     let mut map = Map::new();
-    map.insert("mu".into(), json!(data.mu()));
-    map.insert("sigma".into(), json!(data.sigma()));
+    map.insert("center".into(), json!(data.center()));
+    map.insert("radius".into(), json!(data.radius()));
     map.insert("weight".into(), json!(data.weight()));
     map
 }
@@ -130,23 +130,23 @@ mod tests {
 
     #[test]
     fn test_serialize_component() {
-        let obj = serialize_component(&GaussianData::new(vec![3., 5.1], 4.7, 0.999));
+        let obj = serialize_component(&BallData::new(vec![3., 5.1], 4.7, 0.999));
         let json = serde_json::to_string(&obj).unwrap();
-        assert_eq!(r#"{"mu":[3.0,5.1],"sigma":4.7,"weight":0.999}"#, json);
+        assert_eq!(r#"{"center":[3.0,5.1],"radius":4.7,"weight":0.999}"#, json);
     }
 
     #[test]
     fn test_serialize_model() {
         let mut model = Model::new(space::euclid_dist);
-        let v = model.add_component(GaussianData::new(vec![3., 5.1], 4.7, 0.999), vec![]);
+        let v = model.add_component(BallData::new(vec![3., 5.1], 4.7, 0.999), vec![]);
         model.add_component(
-            GaussianData::new(vec![1.2, 6.], 1.3, 3.998),
+            BallData::new(vec![1.2, 6.], 1.3, 3.998),
             vec![v.as_neighbor()],
         );
         let obj = serialize_model(&model);
         let json = serde_json::to_string(&obj).unwrap();
         assert_eq!(
-            r#"[{"mu":[3.0,5.1],"sigma":4.7,"weight":0.999},{"mu":[1.2,6.0],"sigma":1.3,"weight":3.998}]"#,
+            r#"[{"center":[3.0,5.1],"radius":4.7,"weight":0.999},{"center":[1.2,6.0],"radius":1.3,"weight":3.998}]"#,
             json
         );
     }
@@ -163,7 +163,7 @@ mod tests {
         };
         let streamer = Streamer::new(points, write);
         match Streamer::run(streamer, algo, &mut model) {
-            Ok(()) => assert_eq!(r#"[{"mu":[1.0,1.0],"sigma":null,"weight":0.0}]"#, result),
+            Ok(()) => assert_eq!(r#"[{"center":[1.0,1.0],"radius":null,"weight":0.0}]"#, result),
             Err(_) => panic!(),
         };
     }

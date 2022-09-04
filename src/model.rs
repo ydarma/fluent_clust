@@ -1,4 +1,4 @@
-//! The [Model] struct represents the mixed Gaussian model fited by the algorithm.
+//! The [Model] struct represents the set of ball model fited by the algorithm.
 
 use std::ops::Deref;
 
@@ -7,28 +7,28 @@ use crate::{
     neighborhood::{GetNeighborhood, Neighborhood},
 };
 
-/// Parameters of a gaussian component.
+/// Parameters of a ball component.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct GaussianData<Point: PartialEq> {
-    pub(crate) mu: Point,
-    pub(crate) sigma: f64,
+pub struct BallData<Point: PartialEq> {
+    pub(crate) center: Point,
+    pub(crate) radius: f64,
     pub(crate) weight: f64,
 }
 
-impl<Point: PartialEq> GaussianData<Point> {
-    /// Builds a new gaussian component.
-    pub fn new(mu: Point, sigma: f64, weight: f64) -> Self {
-        GaussianData { mu, sigma, weight }
+impl<Point: PartialEq> BallData<Point> {
+    /// Builds a new ball component.
+    pub fn new(center: Point, radius: f64, weight: f64) -> Self {
+        BallData { center, radius, weight }
     }
 
-    /// Mean.
-    pub fn mu(&self) -> &Point {
-        &self.mu
+    /// Center.
+    pub fn center(&self) -> &Point {
+        &self.center
     }
 
-    /// Variance.
-    pub fn sigma(&self) -> f64 {
-        self.sigma
+    /// Radius.
+    pub fn radius(&self) -> f64 {
+        self.radius
     }
 
     /// Weight
@@ -37,12 +37,12 @@ impl<Point: PartialEq> GaussianData<Point> {
     }
 }
 
-pub type GaussianNode<Point> = Vertex<GaussianData<Point>>;
+pub type BallNode<Point> = Vertex<BallData<Point>>;
 
-/// A mixed gaussian model.
+/// A set of ball model.
 pub struct Model<Point: PartialEq> {
-    pub(crate) dist: Box<dyn Fn(&Point, &GaussianData<Point>) -> f64>,
-    pub(crate) graph: Vec<GaussianNode<Point>>,
+    pub(crate) dist: Box<dyn Fn(&Point, &BallData<Point>) -> f64>,
+    pub(crate) graph: Vec<BallNode<Point>>,
 }
 
 impl<Point: PartialEq + 'static> Model<Point> {
@@ -58,7 +58,7 @@ impl<Point: PartialEq + 'static> Model<Point> {
     }
 
     /// Loads an existing model.
-    pub fn load<Dist>(space_dist: Dist, data: Vec<GaussianData<Point>>) -> Self
+    pub fn load<Dist>(space_dist: Dist, data: Vec<BallData<Point>>) -> Self
     where
         Dist: Fn(&Point, &Point) -> f64 + 'static,
     {
@@ -71,7 +71,7 @@ impl<Point: PartialEq + 'static> Model<Point> {
                 .graph
                 .iter()
                 .filter(|v| v.ne(&vertex))
-                .get_neighborhood(&vertex.deref_data().mu, |v1, v2| {
+                .get_neighborhood(&vertex.deref_data().center, |v1, v2| {
                     (model.dist)(v1, &v2.deref_data())
                 });
             let neighbors = Model::get_neighbors(neighborhood);
@@ -80,16 +80,16 @@ impl<Point: PartialEq + 'static> Model<Point> {
         model
     }
 
-    /// Gaussianizes the given distance function by dividing by the variance.
-    fn normalize<Dist>(space_dist: Dist) -> impl Fn(&Point, &GaussianData<Point>) -> f64
+    /// Normalize the given distance function by dividing by the radius.
+    fn normalize<Dist>(space_dist: Dist) -> impl Fn(&Point, &BallData<Point>) -> f64
     where
         Dist: Fn(&Point, &Point) -> f64,
     {
-        move |p1: &Point, p2: &GaussianData<Point>| space_dist(p1, &p2.mu) / p2.sigma
+        move |p1: &Point, p2: &BallData<Point>| space_dist(p1, &p2.center) / p2.radius
     }
 
     /// Get the components which the given points most probably belongs to.
-    pub fn get_neighborhood(&self, point: &Point) -> Vec<GaussianNode<Point>> {
+    pub fn get_neighborhood(&self, point: &Point) -> Vec<BallNode<Point>> {
         let neighborhood = self
             .graph
             .iter()
@@ -99,10 +99,10 @@ impl<Point: PartialEq + 'static> Model<Point> {
 
     /// Extracts `Neighbor` instance for a `Neighborhood`
     fn get_neighbors<RefNode>(
-        neighborhood: Neighborhood<GaussianNode<Point>, RefNode>,
-    ) -> Vec<GaussianNode<Point>>
+        neighborhood: Neighborhood<BallNode<Point>, RefNode>,
+    ) -> Vec<BallNode<Point>>
     where
-        RefNode: Deref<Target = GaussianNode<Point>>,
+        RefNode: Deref<Target = BallNode<Point>>,
     {
         let mut neighbors = vec![];
         match neighborhood {
@@ -118,14 +118,14 @@ impl<Point: PartialEq + 'static> Model<Point> {
         neighbors
     }
 
-    /// Add a new component to the mixed model.
+    /// Add a new component or ball to the model.
     /// Components neighbors are generally already known,
     /// thus in order to avoid unecessary calls to `Self.get_neighborhood` they are also passed.
     pub(crate) fn add_component(
         &mut self,
-        component: GaussianData<Point>,
-        neighbors: Vec<Neighbor<GaussianData<Point>>>,
-    ) -> GaussianNode<Point> {
+        component: BallData<Point>,
+        neighbors: Vec<Neighbor<BallData<Point>>>,
+    ) -> BallNode<Point> {
         let vertex = Vertex::new(component);
         vertex.set_neighbors(neighbors);
         self.graph.push(vertex.clone());
@@ -135,17 +135,17 @@ impl<Point: PartialEq + 'static> Model<Point> {
     /// Gets an iterator over the model components.
     pub fn iter_components(
         &self,
-    ) -> impl Iterator<Item = impl Deref<Target = GaussianData<Point>> + '_> {
+    ) -> impl Iterator<Item = impl Deref<Target = BallData<Point>> + '_> {
         self.graph.iter().map(|v| v.deref_data())
     }
 }
 
 pub trait GetNeighbors<Point: PartialEq> {
-    fn get_neighbors(&self) -> Vec<Neighbor<GaussianData<Point>>>;
+    fn get_neighbors(&self) -> Vec<Neighbor<BallData<Point>>>;
 }
 
-impl<Point: PartialEq> GetNeighbors<Point> for Vec<GaussianNode<Point>> {
-    fn get_neighbors(&self) -> Vec<Neighbor<GaussianData<Point>>> {
+impl<Point: PartialEq> GetNeighbors<Point> for Vec<BallNode<Point>> {
+    fn get_neighbors(&self) -> Vec<Neighbor<BallData<Point>>> {
         self.iter().map(|n| n.as_neighbor()).collect()
     }
 }
@@ -156,16 +156,16 @@ mod tests {
 
     #[test]
     fn test_build_norm_data() {
-        let norm = GaussianData::new(0., 1., 11.1);
-        assert_eq!(norm.mu, 0.);
-        assert_eq!(norm.sigma, 1.);
+        let norm = BallData::new(0., 1., 11.1);
+        assert_eq!(norm.center, 0.);
+        assert_eq!(norm.radius, 1.);
         assert_eq!(norm.weight, 11.1);
     }
 
     #[test]
     fn test_model_dist() {
         let dist = Model::normalize(space::euclid_dist);
-        let norm = GaussianData::new(vec![0.], 4., 11.1);
+        let norm = BallData::new(vec![0.], 4., 11.1);
         let point = vec![4.];
         let d = dist(&point, &norm);
         assert_eq!(4., d);
@@ -174,9 +174,9 @@ mod tests {
     #[test]
     fn test_model_find_neighbors() {
         let components = vec![
-            GaussianData::new(vec![1.], 4., 11.),
-            GaussianData::new(vec![2.], 2., 1.),
-            GaussianData::new(vec![6.], 1., 7.),
+            BallData::new(vec![1.], 4., 11.),
+            BallData::new(vec![2.], 2., 1.),
+            BallData::new(vec![6.], 1., 7.),
         ];
         let point = vec![4.];
         let dist = Model::normalize(space::euclid_dist);
@@ -205,19 +205,19 @@ mod tests {
     #[test]
     fn test_load_model() {
         let data = vec![
-            GaussianData::<Vec<f64>> {
-                mu: vec![4.],
-                sigma: 3.,
+            BallData::<Vec<f64>> {
+                center: vec![4.],
+                radius: 3.,
                 weight: 1.,
             },
-            GaussianData::<Vec<f64>> {
-                mu: vec![5.],
-                sigma: 2.,
+            BallData::<Vec<f64>> {
+                center: vec![5.],
+                radius: 2.,
                 weight: 2.,
             },
-            GaussianData::<Vec<f64>> {
-                mu: vec![3.],
-                sigma: 3.,
+            BallData::<Vec<f64>> {
+                center: vec![3.],
+                radius: 3.,
                 weight: 3.,
             },
         ];
@@ -235,15 +235,15 @@ mod tests {
 
     fn build_model() -> (
         Model<Vec<f64>>,
-        GaussianData<Vec<f64>>,
-        GaussianData<Vec<f64>>,
+        BallData<Vec<f64>>,
+        BallData<Vec<f64>>,
     ) {
         let mut model = Model::new(space::euclid_dist);
-        let n1 = GaussianData::new(vec![4.], f64::INFINITY, 0.);
+        let n1 = BallData::new(vec![4.], f64::INFINITY, 0.);
         model.add_component(n1.clone(), vec![]);
         let p2 = vec![3.];
         let neighborhood = model.get_neighborhood(&p2);
-        let n2 = GaussianData::new(p2, 3., 1.);
+        let n2 = BallData::new(p2, 3., 1.);
         model.add_component(n2.clone(), neighborhood.get_neighbors());
         (model, n1, n2)
     }

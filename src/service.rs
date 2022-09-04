@@ -180,7 +180,7 @@ mod tests {
             .unwrap();
         let result = models_socket.read_message().unwrap();
         assert_eq!(
-            r#"[{"mu":[1.0,1.0],"sigma":null,"weight":0.0}]"#,
+            r#"[{"center":[1.0,1.0],"radius":null,"weight":0.0}]"#,
             result.into_text().unwrap()
         );
         models_socket.close(None).unwrap();

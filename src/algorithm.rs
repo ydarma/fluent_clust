@@ -1,8 +1,8 @@
-//! The [Algo] struct implements the algorithm that fits mixed Gaussian models from data point streams.
+//! The [Algo] struct implements the algorithm that fits a set of ball model from data point streams.
 
 use std::{marker::PhantomData, ops::DerefMut};
 
-use crate::model::{GaussianData, GaussianNode, GetNeighbors, Model};
+use crate::model::{BallData, BallNode, GetNeighbors, Model};
 
 const EXTRA_THRESHOLD: f64 = 25.;
 const INTRA_THRESHOLD: f64 = 16.;
@@ -11,7 +11,7 @@ const DECAY_FACTOR: f64 = 0.95;
 const DECAY_THRESHOLD: f64 = 1E-2;
 const MAX_NEIGHBORS: usize = 2;
 
-/// The algorithm that fits online incoming points to a gaussian mixture model.
+/// The algorithm that fits online incoming points to a ball mixture model.
 ///
 /// The algorithm can fit any kind of points in a space that:
 ///  - defines the distance between two points,
@@ -33,8 +33,8 @@ const MAX_NEIGHBORS: usize = 2;
 /// }
 /// let mut components = model.iter_components();
 /// let first = components.next().unwrap();
-/// assert_eq!(&vec![6., -4.], first.mu());
-/// assert_eq!(110., first.sigma());
+/// assert_eq!(&vec![6., -4.], first.center());
+/// assert_eq!(110., first.radius());
 /// assert!(first.weight() < 2.001 && first.weight() > 1.999);
 /// ```
 pub struct Algo<Point: PartialEq + 'static> {
@@ -75,27 +75,27 @@ impl<Point: PartialEq + 'static> Algo<Point> {
     }
 
     /// Initializes the model for the first incoming point.
-    /// It creates a first components with an infinite variance and a zero weight.
-    /// The second point will be merged into this component and the variance updated to the distance between the two points.
-    fn init(&self, model: &mut Model<Point>, point: Point) -> GaussianNode<Point> {
-        let component = GaussianData::new(point, f64::INFINITY, 0.);
+    /// It creates a first components with an infinite radius and a zero weight.
+    /// The second point will be merged into this component and the radius updated to the distance between the two points.
+    fn init(&self, model: &mut Model<Point>, point: Point) -> BallNode<Point> {
+        let component = BallData::new(point, f64::INFINITY, 0.);
         model.add_component(component, vec![])
     }
 
     /// Updates the model for all points after the first.
     /// If the new point is "far" from its neighbors, a new component is created
     /// otherwise it is merged into the closest one.
-    /// In both case variance is calculated or updated using the distance between the point and its closest component.
+    /// In both case radius is calculated or updated using the distance between the point and its closest component.
     fn update(
         &self,
         model: &mut Model<Point>,
-        vertex: &GaussianNode<Point>,
+        vertex: &BallNode<Point>,
         point: Point,
-        neighborhood: &Vec<GaussianNode<Point>>,
-    ) -> (GaussianNode<Point>, Option<GaussianNode<Point>>) {
+        neighborhood: &Vec<BallNode<Point>>,
+    ) -> (BallNode<Point>, Option<BallNode<Point>>) {
         let mut closest = vertex.deref_data_mut();
-        let d = (self.dist)(&closest.mu, &point);
-        if d < INTRA_THRESHOLD * closest.sigma {
+        let d = (self.dist)(&closest.center, &point);
+        if d < INTRA_THRESHOLD * closest.radius {
             self.update_component(&mut closest, point, d);
             (vertex.clone(), neighborhood.get(1).map(|v| v.clone()))
         } else {
@@ -105,59 +105,59 @@ impl<Point: PartialEq + 'static> Algo<Point> {
         }
     }
 
-    /// Updates the gaussian component when the given point is merged.
+    /// Updates the ball component when the given point is merged.
     /// The center is updated to the weighted center of point ansd the component.
-    /// The variance is updated using the distance between the point and the component center.
+    /// The radius is updated using the distance between the point and the component center.
     fn update_component(
         &self,
-        component: &mut impl DerefMut<Target = GaussianData<Point>>,
+        component: &mut impl DerefMut<Target = BallData<Point>>,
         point: Point,
         dist: f64,
     ) {
-        component.mu = self.update_mu(component, point);
-        component.sigma = self.update_sigma(component, dist);
+        component.center = self.update_mu(component, point);
+        component.radius = self.update_sigma(component, dist);
         component.weight += 1.;
     }
 
     /// Updates the component center to the weighted center of point ansd the component.
     fn update_mu(
         &self,
-        component: &impl DerefMut<Target = GaussianData<Point>>,
+        component: &impl DerefMut<Target = BallData<Point>>,
         point: Point,
     ) -> Point {
-        (self.combine)(&component.mu, component.weight, &point, 1.)
+        (self.combine)(&component.center, component.weight, &point, 1.)
     }
 
-    /// Updates the component variance using the distance between the point and the component center.
+    /// Updates the component radius using the distance between the point and the component center.
     fn update_sigma(
         &self,
-        component: &impl DerefMut<Target = GaussianData<Point>>,
+        component: &impl DerefMut<Target = BallData<Point>>,
         dist: f64,
     ) -> f64 {
         if component.weight == 0. {
             dist
         } else {
-            (component.sigma * component.weight + dist) / (component.weight + 1.)
+            (component.radius * component.weight + dist) / (component.weight + 1.)
         }
     }
 
     /// Creates a new component for the point.
-    /// The center and the variance are calculated using the distance to its closest neighbor.
+    /// The center and the radius are calculated using the distance to its closest neighbor.
     fn split_component(
         &self,
         point: Point,
         d: f64,
-        neighbor: &impl DerefMut<Target = GaussianData<Point>>,
-    ) -> GaussianData<Point> {
-        let sigma = d / EXTRA_THRESHOLD;
-        let mu = (self.combine)(&neighbor.mu, -1., &point, 5.);
-        GaussianData::new(mu, sigma, 1.)
+        neighbor: &impl DerefMut<Target = BallData<Point>>,
+    ) -> BallData<Point> {
+        let radius = d / EXTRA_THRESHOLD;
+        let center = (self.combine)(&neighbor.center, -1., &point, 5.);
+        BallData::new(center, radius, 1.)
     }
 
     /// Updates the neighborhood of a component with the candidate component if it is closer than its current neighbors.
     /// Then merges the component with its closest neighbor if close enough.
-    fn update_local_graph(&self, vertex: &GaussianNode<Point>, candidate: GaussianNode<Point>) {
-        let neighborhood: Vec<GaussianNode<Point>> = vertex.iter_neighbors().collect();
+    fn update_local_graph(&self, vertex: &BallNode<Point>, candidate: BallNode<Point>) {
+        let neighborhood: Vec<BallNode<Point>> = vertex.iter_neighbors().collect();
         let neighborhood = self.rebuild_neighborhood(vertex, neighborhood, candidate);
         let mut neighborhood = self.rebuild_merge(vertex, neighborhood);
         if neighborhood.len() > MAX_NEIGHBORS {
@@ -169,13 +169,13 @@ impl<Point: PartialEq + 'static> Algo<Point> {
     /// Updates the neighborhood of a component with the candidate component if it is closer than its current neighbors.
     fn rebuild_neighborhood(
         &self,
-        vertex: &GaussianNode<Point>,
-        mut neighborhood: Vec<GaussianNode<Point>>,
-        candidate: GaussianNode<Point>,
-    ) -> Vec<GaussianNode<Point>> {
-        let current_point = &vertex.deref_data().mu;
+        vertex: &BallNode<Point>,
+        mut neighborhood: Vec<BallNode<Point>>,
+        candidate: BallNode<Point>,
+    ) -> Vec<BallNode<Point>> {
+        let current_point = &vertex.deref_data().center;
         let dist_to_current =
-            |p: &GaussianNode<Point>| (self.dist)(&p.deref_data().mu, &current_point);
+            |p: &BallNode<Point>| (self.dist)(&p.deref_data().center, &current_point);
 
         let candidate_dist = dist_to_current(&candidate);
         for i in 0..MAX_NEIGHBORS {
@@ -200,9 +200,9 @@ impl<Point: PartialEq + 'static> Algo<Point> {
     /// Merges a component to its closest neighbor if it is close enough.
     fn rebuild_merge(
         &self,
-        vertex: &GaussianNode<Point>,
-        mut neighborhood: Vec<GaussianNode<Point>>,
-    ) -> Vec<GaussianNode<Point>> {
+        vertex: &BallNode<Point>,
+        mut neighborhood: Vec<BallNode<Point>>,
+    ) -> Vec<BallNode<Point>> {
         let (should_merge, d) = self.should_merge(vertex, &neighborhood[0]);
         if should_merge {
             self.merge_components(vertex, &neighborhood[0], d);
@@ -214,36 +214,36 @@ impl<Point: PartialEq + 'static> Algo<Point> {
     /// Decides if two components are close enough to merge.
     fn should_merge(
         &self,
-        first: &GaussianNode<Point>,
-        second: &GaussianNode<Point>,
+        first: &BallNode<Point>,
+        second: &BallNode<Point>,
     ) -> (bool, f64) {
         let current_data = first.deref_data();
         let neighbor_data = second.deref_data();
-        let d = (self.dist)(&current_data.mu, &neighbor_data.mu);
-        let should_merge = d < (current_data.sigma + neighbor_data.sigma) * MERGE_THRESHOLD;
+        let d = (self.dist)(&current_data.center, &neighbor_data.center);
+        let should_merge = d < (current_data.radius + neighbor_data.radius) * MERGE_THRESHOLD;
         (should_merge, d)
     }
 
     /// Merge two components.
     /// The new center is the weighted center of the component centers
-    /// and the new variance is the weighted average of the components variances.
+    /// and the new radius is the weighted average of the components variances.
     fn merge_components(
         &self,
-        vertex: &GaussianNode<Point>,
-        neighbor: &GaussianNode<Point>,
+        vertex: &BallNode<Point>,
+        neighbor: &BallNode<Point>,
         d: f64,
     ) {
         let mut current_data = vertex.deref_data_mut();
         let mut neighbor_data = neighbor.deref_data_mut();
-        current_data.mu = (self.combine)(
-            &current_data.mu,
+        current_data.center = (self.combine)(
+            &current_data.center,
             current_data.weight,
-            &neighbor_data.mu,
+            &neighbor_data.center,
             neighbor_data.weight,
         );
-        current_data.sigma = d
-            + (current_data.sigma * current_data.weight
-                + neighbor_data.sigma * neighbor_data.weight)
+        current_data.radius = d
+            + (current_data.radius * current_data.weight
+                + neighbor_data.radius * neighbor_data.weight)
                 / (current_data.weight + neighbor_data.weight);
         current_data.weight = current_data.weight + neighbor_data.weight;
         neighbor_data.weight = 0.;
@@ -251,7 +251,7 @@ impl<Point: PartialEq + 'static> Algo<Point> {
 
     /// Decrease the weight of all components by applying decay factor.
     /// Remove components which weight is too low.
-    fn decay(&self, model: &mut Model<Point>, vertex: GaussianNode<Point>) {
+    fn decay(&self, model: &mut Model<Point>, vertex: BallNode<Point>) {
         model.graph.retain(|v| {
             if v.deref_data().ne(&vertex.deref_data()) {
                 v.deref_data_mut().weight *= DECAY_FACTOR;
@@ -273,8 +273,8 @@ mod tests {
         let (dataset, model) = build_model(1);
         let mut components = model.iter_components();
         let first = components.next().unwrap();
-        assert_eq!(dataset[0], first.mu);
-        assert_eq!(f64::INFINITY, first.sigma);
+        assert_eq!(dataset[0], first.center);
+        assert_eq!(f64::INFINITY, first.radius);
         assert_eq!(0., first.weight);
     }
 
@@ -283,8 +283,8 @@ mod tests {
         let (dataset, model) = build_model(2);
         let mut components = model.iter_components();
         let first = components.next().unwrap();
-        assert_eq!(dataset[1], first.mu);
-        assert_eq!(20., first.sigma);
+        assert_eq!(dataset[1], first.center);
+        assert_eq!(20., first.radius);
         assert_eq!(1., first.weight);
     }
 
@@ -293,12 +293,12 @@ mod tests {
         let (dataset, model) = build_model(3);
         let mut components = model.iter_components();
         let first = components.next().unwrap();
-        assert_eq!(dataset[1], first.mu);
-        assert_eq!(20., first.sigma);
+        assert_eq!(dataset[1], first.center);
+        assert_eq!(20., first.radius);
         assert_approx_eq!(DECAY_FACTOR, first.weight);
         let second = components.next().unwrap();
-        assert_eq!(vec![18.5, -16.5], second.mu);
-        assert_eq!(15.68, second.sigma);
+        assert_eq!(vec![18.5, -16.5], second.center);
+        assert_eq!(15.68, second.radius);
         assert_eq!(1., second.weight);
     }
 
@@ -309,10 +309,10 @@ mod tests {
         let first = components.next().unwrap();
         let second = components.next().unwrap();
         let mut n1 = model.graph[0].iter_neighbors();
-        assert_eq!(second.mu, n1.next().unwrap().deref_data().mu);
+        assert_eq!(second.center, n1.next().unwrap().deref_data().center);
         assert!(n1.next().is_none());
         let mut n2 = model.graph[1].iter_neighbors();
-        assert_eq!(first.mu, n2.next().unwrap().deref_data().mu);
+        assert_eq!(first.center, n2.next().unwrap().deref_data().center);
         assert!(n2.next().is_none());
     }
 
@@ -324,14 +324,14 @@ mod tests {
         let second = components.next().unwrap();
         let third = components.next().unwrap();
         let mut n1 = model.graph[0].iter_neighbors();
-        assert_eq!(second.mu, n1.next().unwrap().deref_data().mu);
-        assert_eq!(third.mu, n1.next().unwrap().deref_data().mu); // appended during refinement
+        assert_eq!(second.center, n1.next().unwrap().deref_data().center);
+        assert_eq!(third.center, n1.next().unwrap().deref_data().center); // appended during refinement
         let mut n2 = model.graph[1].iter_neighbors();
-        assert_eq!(first.mu, n2.next().unwrap().deref_data().mu);
+        assert_eq!(first.center, n2.next().unwrap().deref_data().center);
         assert!(n2.next().is_none()); // not up to date for now
         let mut n3 = model.graph[2].iter_neighbors();
-        assert_eq!(first.mu, n3.next().unwrap().deref_data().mu);
-        assert_eq!(second.mu, n3.next().unwrap().deref_data().mu);
+        assert_eq!(first.center, n3.next().unwrap().deref_data().center);
+        assert_eq!(second.center, n3.next().unwrap().deref_data().center);
     }
 
     #[test]
@@ -343,14 +343,14 @@ mod tests {
         let third = components.next().unwrap();
         let fourth = components.next().unwrap();
         let mut n1 = model.graph[0].iter_neighbors();
-        assert_eq!(second.mu, n1.next().unwrap().deref_data().mu);
-        assert_eq!(third.mu, n1.next().unwrap().deref_data().mu);
+        assert_eq!(second.center, n1.next().unwrap().deref_data().center);
+        assert_eq!(third.center, n1.next().unwrap().deref_data().center);
         let mut n2 = model.graph[1].iter_neighbors();
-        assert_eq!(fourth.mu, n2.next().unwrap().deref_data().mu); // prepended during refinement
-        assert_eq!(first.mu, n2.next().unwrap().deref_data().mu);
+        assert_eq!(fourth.center, n2.next().unwrap().deref_data().center); // prepended during refinement
+        assert_eq!(first.center, n2.next().unwrap().deref_data().center);
         let mut n3 = model.graph[2].iter_neighbors();
-        assert_eq!(first.mu, n3.next().unwrap().deref_data().mu);
-        assert_eq!(second.mu, n3.next().unwrap().deref_data().mu);
+        assert_eq!(first.center, n3.next().unwrap().deref_data().center);
+        assert_eq!(second.center, n3.next().unwrap().deref_data().center);
     }
 
     #[test]
@@ -364,14 +364,14 @@ mod tests {
         assert!(first.weight > 3.);
         assert!(second.weight < 1.);
         assert!(third.weight < 1.);
-        assert!(first.mu[0] < 10.);
-        assert!(first.mu[1] < 0.);
-        assert!(second.mu[0] > 10.);
-        assert!(second.mu[1] > 0.);
-        assert!(third.mu[0] > 10.);
-        assert!(third.mu[1] > 0.);
+        assert!(first.center[0] < 10.);
+        assert!(first.center[1] < 0.);
+        assert!(second.center[0] > 10.);
+        assert!(second.center[1] > 0.);
+        assert!(third.center[0] > 10.);
+        assert!(third.center[1] > 0.);
         let mut n1 = model.graph[0].iter_neighbors();
-        assert_eq!(third.mu, n1.next().unwrap().deref_data().mu);
+        assert_eq!(third.center, n1.next().unwrap().deref_data().center);
         assert!(n1.next().is_none());
     }
 

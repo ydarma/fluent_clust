@@ -1,4 +1,4 @@
-//! This library provides an online algorithm to fit streaming data into a mixed Gaussian model.
+//! This library provides an online algorithm to fit streaming data into as a set of balls.
 //! Components covariances are supposed to be zero, i.e. for a given component dimensions are independant from each other.
 //! Theese are very strong hypothesis, thus the algorithm is not suited to all kind of data.
 //!
@@ -7,7 +7,8 @@
 //!  - a function that computes the wighted center of two points
 //!  
 //! Theese functions are used to construct the [Algo] and [Model] structs,
-//! that represents respectively the algorithm and the mixed Gaussian model.
+//! that represents respectively the algorithm and the ball model.
+//! Each ball is described by its center, radius and weight.
 //!
 //! ```
 //! use fluent_data::{Model, Algo, space};
@@ -154,11 +155,11 @@
 //! or decorating an existing one (see section above).
 //! A saved model may be loaded at system startup thanks to [Model::load].
 //! ```
-//! use fluent_data::{Model, Algo, space, model::GaussianData};
+//! use fluent_data::{Model, Algo, space, model::BallData};
 //! use fluent_data::{service, Streamer};
 //! use std::error::Error;
 //!
-//! fn get_algo_model(data: Vec<GaussianData<Vec<f64>>>) -> (Model<Vec<f64>>, Algo<Vec<f64>>) {
+//! fn get_algo_model(data: Vec<BallData<Vec<f64>>>) -> (Model<Vec<f64>>, Algo<Vec<f64>>) {
 //!     let algo = Algo::new(space::euclid_dist, space::real_combine);
 //!     let model = Model::load(space::euclid_dist, data);
 //!     (model, algo)
