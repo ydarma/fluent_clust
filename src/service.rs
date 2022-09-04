@@ -132,45 +132,11 @@ fn read_point(message: Message, point_producer: &Sender<String>) -> bool {
 /// Starts the dispatcher that will handle peers which asked for receiving models on dispatch.
 fn start_dispatcher(peers: Peers, model_receiver: Receiver<String>) {
     thread::spawn(move || {
-        loop {
-        let msg = model_receiver.try_recv();
-        let mut peers = peers.lock().unwrap();
-        peers.retain_mut(|peer| try_send_model(peer, &msg));
-    }
-});
-}
-
-/// Handle messages received by the peer. If peer is still alive send the model if any.
-fn try_send_model(
-    peer: &mut WebSocket<TcpStream>,
-    msg: &Result<String, mpsc::TryRecvError>,
-) -> bool {
-    peer.can_read()
-        && drain(peer)
-        && if let Ok(msg) = &msg {
-            send_model(peer, msg.clone())
-        } else {
-            true
+        for msg in model_receiver {
+            let mut peers = peers.lock().unwrap();
+            peers.retain_mut(|peer| send_model(peer, msg.clone()));
         }
-}
-
-/// Drain all messages sent by peer, retruns false if `Close` message was received.
-fn drain(peer: &mut WebSocket<TcpStream>) -> bool {
-    let mut buf = [0; 1];
-    let get_ref = &peer.get_ref();
-    get_ref.set_nonblocking(true).unwrap();
-    if let Ok(_) = get_ref.peek(&mut buf) {
-        let get_ref = &peer.get_ref();
-        get_ref.set_nonblocking(false).unwrap();
-        match peer.read_message() {
-            Ok(Message::Close(_)) => false,
-            _ => drain(peer),
-        }
-    } else {
-        let get_ref = &peer.get_ref();
-        get_ref.set_nonblocking(false).unwrap();
-        true
-    }
+    });
 }
 
 /// Sends the message ti the peer.
