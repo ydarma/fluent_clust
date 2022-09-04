@@ -48,7 +48,7 @@ fluent_data --service
 Data points must be sent to `ws://0.0.0.0:9001/ws/points` and model are received from `ws://0.0.0.0:9001/ws/models`.
 The port can be customized by setting the `PORT` environment variable.
 
-For sending and receiving points, the websocket client (websocat)[https://crates.io/crates/websocat] can be used.
+For sending and receiving points, the websocket client [websocat](https://crates.io/crates/websocat) can be used.
 Open a first terminal that will listen for models:
 ```
 websocat ws://127.0.0.1:9001/ws/models
