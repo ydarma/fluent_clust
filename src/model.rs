@@ -67,13 +67,13 @@ impl<Point: PartialEq + 'static> Model<Point> {
 
     /// Load an existing model.
     /// ```
-    /// use fluent_data::{Model, model::BallData, space};
+    /// use fluent_data::{Model, model::Ball, space};
     ///
     /// fn main() {
     ///     let data = vec![
-    ///         BallData::new(vec![4.], 3., 1.),
-    ///         BallData::new(vec![5.], 2., 2.),
-    ///         BallData::new(vec![3.], 3., 3.),
+    ///         Ball::new(vec![4.], 3., 1.),
+    ///         Ball::new(vec![5.], 2., 2.),
+    ///         Ball::new(vec![3.], 3., 3.),
     ///     ];
     ///     let model = Model::load(space::euclid_dist, data);
     /// }
@@ -163,13 +163,13 @@ impl<Point: PartialEq + 'static> Model<Point> {
 
     /// Gets the balls that most probably include the given point.
     /// ```
-    /// use fluent_data::{Model, model::BallData, space, neighborhood::{GetNeighborhood, Neighborhood}};
+    /// use fluent_data::{Model, model::Ball, space, neighborhood::{GetNeighborhood, Neighborhood}};
     ///
     /// fn main() {
     ///     let data = vec![
-    ///         BallData::new(vec![4.], 3., 1.),
-    ///         BallData::new(vec![5.], 2., 2.),
-    ///         BallData::new(vec![3.], 3., 3.),
+    ///         Ball::new(vec![4.], 3., 1.),
+    ///         Ball::new(vec![5.], 2., 2.),
+    ///         Ball::new(vec![3.], 3., 3.),
     ///     ];
     ///     let model = Model::load(space::euclid_dist, data.clone());
     ///     let neighborhood = model.predict(&vec![6.]);

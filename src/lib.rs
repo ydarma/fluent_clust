@@ -156,11 +156,11 @@
 //! or decorating an existing one (see section above).
 //! A saved model may be loaded at system startup thanks to [Model::load].
 //! ```
-//! use fluent_data::{Model, Algo, space, model::BallData};
+//! use fluent_data::{Model, Algo, space, model::Ball};
 //! use fluent_data::{service, Streamer};
 //! use std::error::Error;
 //!
-//! fn get_algo_model(data: Vec<BallData<Vec<f64>>>) -> (Model<Vec<f64>>, Algo<Vec<f64>>) {
+//! fn get_algo_model(data: Vec<Ball<Vec<f64>>>) -> (Model<Vec<f64>>, Algo<Vec<f64>>) {
 //!     let algo = Algo::new(space::euclid_dist, space::real_combine);
 //!     let model = Model::load(space::euclid_dist, data);
 //!     (model, algo)
