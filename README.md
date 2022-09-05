@@ -110,8 +110,8 @@ Given a set of balls fitted from data points received so far, let `P` be the new
       - the center is set to the weighted average of the centers `C <- (w.C + w'.C') / (w + w')`,
       - the weight is set to the sum of the weights `w <- w + w'`.
    - `B'` is dropped.
- - (III) The weight of all alls but the one which `P` belongs to (that is `B` or `B*`) are decayed with a factor of 0.95.
-   - All balls which weight is lower than 1/100 are removed.
+ - (III) The weight of all alls but the one which `P` belongs to (that is `B` or `B*`) are decayed with a factor of 0.95, `w <- 0.95 w`.
+   - All balls which weight is lower than 1/100, `w < 1/100` are removed.
  
 ## About the implementation
 All balls are represented by their center, square of the radius (which is more useful for computations) and weight.
