@@ -150,9 +150,9 @@ impl<Point: PartialEq + 'static> Algo<Point> {
 
     /// Updates the neighborhood of a ball with the candidate ball if it is closer than its current neighbors.
     /// Then merges the ball with its closest neighbor if close enough.
-    fn update_local_graph(&self, vertex: &BallNode<Point>, candidate: BallNode<Point>) {
+    fn update_local_graph(&self, vertex: &BallNode<Point>, maybe_neighbor: BallNode<Point>) {
         let neighborhood: Vec<BallNode<Point>> = vertex.iter_neighbors().collect();
-        let neighborhood = self.rebuild_neighborhood(vertex, neighborhood, candidate);
+        let neighborhood = self.rebuild_neighborhood(vertex, neighborhood, maybe_neighbor);
         let mut neighborhood = self.rebuild_merge(vertex, neighborhood);
         if neighborhood.len() > MAX_NEIGHBORS {
             neighborhood.pop();
@@ -165,26 +165,26 @@ impl<Point: PartialEq + 'static> Algo<Point> {
         &self,
         vertex: &BallNode<Point>,
         mut neighborhood: Vec<BallNode<Point>>,
-        candidate: BallNode<Point>,
+        maybe_neighbor: BallNode<Point>,
     ) -> Vec<BallNode<Point>> {
         let current_point = &vertex.deref_data().center;
         let dist_to_current =
             |p: &BallNode<Point>| (self.dist)(&p.deref_data().center, &current_point);
 
-        let candidate_dist = dist_to_current(&candidate);
+        let candidate_dist = dist_to_current(&maybe_neighbor);
         for i in 0..MAX_NEIGHBORS {
             // not enough known neighbors: push candidate
             if i == neighborhood.len() {
-                neighborhood.push(candidate);
+                neighborhood.push(maybe_neighbor);
                 break;
             }
             // candidate is already a known neighbor: keep known neighbors
-            if neighborhood[i].eq(&candidate) {
+            if neighborhood[i].eq(&maybe_neighbor) {
                 break;
             }
             // candidate is closer than known neighbor: insert candidate
             if dist_to_current(&neighborhood[i]) > candidate_dist {
-                neighborhood.insert(i, candidate);
+                neighborhood.insert(i, maybe_neighbor);
                 break;
             }
         }

@@ -1,6 +1,6 @@
 [package]
 name = "fluent_data"
-version = "1.2.2"
+version = "1.2.3"
 edition = "2021"
 keywords = ["datascience", "algorithm"]
 description = "A low footprint streaming data modelization library and service."

@@ -86,14 +86,13 @@ See [the customization section of the crate documentation](https://docs.rs/fluen
 
 # How it works
 Given a set of balls fitted from data points received so far, let `P` be the new incoming point.
- Let `B` and `B'` be the two balls that most probably contain `P` (*).
+Let `B` be the ball that most probably contains `P` (*).
 
- Let `C` be the center of `B`, `r` its radius and `w` its weight. Similarly, `C'`, `r'` and `w'` are the center, radius and weight of `B'`.
- Let `d` be the distance from `P` to `C`: `d = |PC|`.
- 
- (*) by "most probably includes" we mean that `B` minimizes the quantity `d/r` for all balls in the model.
- 
- The fitting algorithm is the following:
+Let `C` be the center of `B`, `r` its radius and `w` its weight. Let `d` be the distance from `P` to `C`: `d = |PC|`.
+
+(*) by "most probably includes" we mean that `B` minimizes the quantity `d/r` for all balls in the model.
+
+The fitting algorithm is the following:
  - (I) If the distance is less than four times `B` radius, `d < 4r`,
    - the new point belongs to `B`, `B` is incrementally updated:
       - the sqaure of the radius is set to the average square radius: `r² <- (w.r² + d²) / (w + 1)`,
@@ -103,26 +102,34 @@ Given a set of balls fitted from data points received so far, let `P` be the new
       - the radius is set to 1/5 of the distance: `r* <- d / 5`, i.e. `r*² <- d² / 25`,
       - the center `C*` is set such as `C`, `P` and `C*` are aligned and `CC* = 6/5 CP`, i.e. `C* <- (-C + 5P) / 6`
       - the weight of the ball is set to 1.
- - (II) In the first case above, `B` and `B'` are merged into a single ball
-        if the square of their square distance is less than the sum of square of their radius, `d² < r² + r'²`:
+ - (II) Let `B'` be the nearest ball of `B`, i.e. the distance `CC'` is minimal among all balls in the model.
+        In the first case above, `B` and `B'` may be merged into a single ball
+        if the square distance between them is less than the sum of square of their radius, `d² < r² + r'²`:
    - `B` is updated:
-      - the square of the radius is set to the weighted average of the square of the radius, plus the square of the distance `r² <- (w.r² + w'.r'2) / (w + w') + d²`,
+      - the square of the radius is set to the weighted average of the square of the radius, plus the square of the distance `r² <- (w.r² + w'.r'²) / (w + w') + d²`,
       - the center is set to the weighted average of the centers `C <- (w.C + w'.C') / (w + w')`,
       - the weight is set to the sum of the weights `w <- w + w'`.
    - `B'` is dropped.
  - (III) The weight of all alls but the one which `P` belongs to (that is `B` or `B*`) are decayed with a factor of 0.95, `w <- 0.95 w`.
    - All balls which weight is lower than 1/100, `w < 1/100` are removed.
- 
+
 ## About the implementation
-All balls are represented by their center, square of the radius (which is more useful for computations) and weight.
+Each ball `B` is represented by `(C, r, w)` respectively the center,
+square of the radius (which is more useful for computations) and weight of `B`.
 
-The model is represented in memory with a graph which vertices are associated to balls.
-Edges links the 2 nearest neighbors of each balls (i.e. the two balls that could be most probably the same).
+The model is represented in memory with a graph which vertices are associated with balls.
+For a vertex `V` associated with ball `B`, `V` neighborhood is `{V', V"}`, the vertices associated with the 2 nearest balls of `B`, 
+i.e. the two balls `{B', B"}` for which distances `|CC'|` a `|CC"|` are respectively
+the smallest and second smallest among all balls in the model.
 
-The graph is maintained in memory:
- - When a new ball is created, the incoming point former two most probable balls (`B` and `B'` above) become the new vertice neighbors.
- - When the incoming point is merged (`P` merged into `B` above) the ball neighborhood is recomputed using
-   the second most probable ball of the incoming point (`B'` above) which may be interspersed in the current neighborhood:
-   let (`B1`, `B2`) be the neighborhood of `B`, `B'` may be closer now form `B` than `B1` or `B2`.
+Given a set of balls fitted from data points received so far, let `P` be the new incoming point.
+Let `{B, B°}` be the two balls that most probably contain `P` (* see above) and `{V, V°}` the coresponding vertices.
+
+The graph is maintained in memory as follows:
+ - When a new ball `B*` is created, a new vertex `V*` is created with associated ball `B*`, `{V, V°}` become `V*` neighborhood.
+   `B*` may be now closer from `B` than `B'` or `B"`.
+   Thus, `V` neighbors are recomputed among `{V', V", V*}`, by searching the 2 nearest neghbors of `B` among `{B', B", B*}`.
+ - When `B` is updated to include `P`, `B°` may be now closer from `B` than `B'` or `B"`.
+   Thus, `V` neighbors are recomputed among `{V', V", V°}`, by searching the 2 nearest neghbors of `B` among `{B', B", B°}`.
    
 The graph implementation is private to the crate, its implementation can be found here: [graph.rs](https://github.com/ydarma/fluent_data/blob/main/src/graph.rs).
