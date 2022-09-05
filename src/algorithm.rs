@@ -110,12 +110,7 @@ impl<Point: PartialEq + 'static> Algo<Point> {
     /// Updates the ball when the given point is merged.
     /// The center is updated to the weighted center of point ansd the ball.
     /// The radius is updated using the distance between the point and the ball center.
-    fn update_ball(
-        &self,
-        ball: &mut impl DerefMut<Target = Ball<Point>>,
-        point: Point,
-        dist: f64,
-    ) {
+    fn update_ball(&self, ball: &mut impl DerefMut<Target = Ball<Point>>, point: Point, dist: f64) {
         ball.center = self.update_mu(ball, point);
         ball.radius = self.update_sigma(ball, dist);
         ball.weight += 1.;

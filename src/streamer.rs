@@ -132,17 +132,17 @@ mod tests {
     fn test_serialize_ball() {
         let obj = serialize_ball(&Ball::new(vec![3., 5.1], 4.7, 0.999));
         let json = serde_json::to_string(&obj).unwrap();
-        assert_eq!(r#"{"center":[3.0,5.1],"radius":2.16794833886788,"weight":0.999}"#, json);
+        assert_eq!(
+            r#"{"center":[3.0,5.1],"radius":2.16794833886788,"weight":0.999}"#,
+            json
+        );
     }
 
     #[test]
     fn test_serialize_model() {
         let mut model = Model::new(space::euclid_dist);
         let v = model.add_ball(Ball::new(vec![3., 5.1], 4.7, 0.999), vec![]);
-        model.add_ball(
-            Ball::new(vec![1.2, 6.], 1.3, 3.998),
-            vec![v.as_neighbor()],
-        );
+        model.add_ball(Ball::new(vec![1.2, 6.], 1.3, 3.998), vec![v.as_neighbor()]);
         let obj = serialize_model(&model);
         let json = serde_json::to_string(&obj).unwrap();
         assert_eq!(

@@ -126,10 +126,11 @@ Given a set of balls fitted from data points received so far, let `P` be the new
 Let `{B, B°}` be the two balls that most probably contain `P` (* see above) and `{V, V°}` the coresponding vertices.
 
 The graph is maintained in memory as follows:
- - When a new ball `B*` is created, a new vertex `V*` is created with associated ball `B*`, `{V, V°}` become `V*` neighborhood.
-   `B*` may be now closer from `B` than `B'` or `B"`.
+ - When a new ball `B*` is created at step (I), a new vertex `V*` is created with associated ball `B*`, `{V, V°}` become `V*` neighborhood.
+   `B*` may be now closer from `B` than `B'` or `B"`.  
    Thus, `V` neighbors are recomputed among `{V', V", V*}`, by searching the 2 nearest neghbors of `B` among `{B', B", B*}`.
- - When `B` is updated to include `P`, `B°` may be now closer from `B` than `B'` or `B"`.
-   Thus, `V` neighbors are recomputed among `{V', V", V°}`, by searching the 2 nearest neghbors of `B` among `{B', B", B°}`.
-   
+ - When `B` is updated to include `P` at step (I), `B°` may be now closer from `B` than `B'` or `B"`:
+    - if `B` and `B'` are not merged at step (II) and `B°` does not belong to `{B', B"}`, `V` neighbors are recomputed among `{V', V", V°}`, by searching the 2 nearest neghbors of `B` among `{B', B", B°}`.  
+    - if `B` and `B'` are merged at step (II): if `B°` does not belong to `{B', B"}` the neighborhood of `V` becomes `{V", V°}` otherwise it becomes `{V"}`.
+
 The graph implementation is private to the crate, its implementation can be found here: [graph.rs](https://github.com/ydarma/fluent_data/blob/main/src/graph.rs).
