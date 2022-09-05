@@ -5,7 +5,7 @@
 /// A point in R^n.
 pub type RealPoint = Vec<f64>;
 
-/// Conputes Euclidian distance in R^n.
+/// Conputes the square of the Euclidian distance in R^n.
 pub fn euclid_dist(p1: &RealPoint, p2: &RealPoint) -> f64 {
     p1.iter()
         .zip(p2)

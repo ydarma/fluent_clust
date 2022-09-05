@@ -23,7 +23,7 @@ pub fn assert_final_result(m: &String) {
     let radius = final_result[0]["radius"].as_f64().unwrap();
     let weight = final_result[0]["weight"].as_f64().unwrap();
     assert_approx_eq!(center, 2.0, 5E-2);
-    assert_approx_eq!(radius, 9.0, 5E-2);
+    assert_approx_eq!(radius, 3.0, 5E-2);
     assert_approx_eq!(weight, 10000., 1E-1);
 }
 

@@ -1,8 +1,8 @@
 //! This library provides an online algorithm to fit streaming data into a set of balls.
 //!
 //! The algorithm needs two functions that can be customized :
-//!  - a function that computes a distance between two points
-//!  - a function that computes the weighted center of two points
+//!  - a function that computes the square of the distance between two points,
+//!  - a function that computes the weighted center of two points.
 //!  
 //! Theese functions are used to construct the [Algo] and [Model] structs,
 //! that respectively represent the algorithm and the set of balls model.
@@ -89,8 +89,8 @@
 //! ```
 //!
 //! ## Customization
-//! The algorithm can use other distance than the Euclidean distance.
-//! You'll have to write your own distance function and create `Algo` and `Model` structs:
+//! The algorithm can use other square distance than the Euclidean square distance.
+//! You'll have to write your own square distance function and create `Algo` and `Model` structs:
 //! ```
 //! use serde::{Deserialize, Serialize};
 //! use serde_json::Result;
@@ -101,7 +101,7 @@
 //!   //...
 //! }
 //!
-//! /// Return the SQUARE of the distance between p1 and p2
+//! /// Return the square of the distance between p1 and p2
 //! fn distance(p1: &Point, p2: &Point) -> f64 {
 //!   todo!()
 //! }

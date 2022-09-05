@@ -51,7 +51,8 @@ impl<Data: PartialEq> Vertex<Data> {
         }
     }
 
-    /// Casts this vertex as a neighbor of another vertex. Downgrades the smart pointer.
+    /// Cast this vertex as a neighbor of another vertex.
+    /// Actually downgrades the smart pointer.
     pub fn as_neighbor(&self) -> Neighbor<Data> {
         Neighbor {
             target: Rc::downgrade(&self.node),

@@ -13,7 +13,7 @@ use std::{
 
 use crate::{
     algorithm::Algo,
-    model::{BallData, Model},
+    model::{Ball, Model},
 };
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Map, Value};
@@ -81,7 +81,7 @@ fn serialize_model<Point: PartialEq + Serialize + 'static>(
 }
 
 fn serialize_ball<Point: PartialEq + Serialize>(
-    data: impl Deref<Target = BallData<Point>>,
+    data: impl Deref<Target = Ball<Point>>,
 ) -> Map<String, Value> {
     let mut map = Map::new();
     map.insert("center".into(), json!(data.center()));
@@ -130,23 +130,23 @@ mod tests {
 
     #[test]
     fn test_serialize_ball() {
-        let obj = serialize_ball(&BallData::new(vec![3., 5.1], 4.7, 0.999));
+        let obj = serialize_ball(&Ball::new(vec![3., 5.1], 4.7, 0.999));
         let json = serde_json::to_string(&obj).unwrap();
-        assert_eq!(r#"{"center":[3.0,5.1],"radius":4.7,"weight":0.999}"#, json);
+        assert_eq!(r#"{"center":[3.0,5.1],"radius":2.16794833886788,"weight":0.999}"#, json);
     }
 
     #[test]
     fn test_serialize_model() {
         let mut model = Model::new(space::euclid_dist);
-        let v = model.add_ball(BallData::new(vec![3., 5.1], 4.7, 0.999), vec![]);
+        let v = model.add_ball(Ball::new(vec![3., 5.1], 4.7, 0.999), vec![]);
         model.add_ball(
-            BallData::new(vec![1.2, 6.], 1.3, 3.998),
+            Ball::new(vec![1.2, 6.], 1.3, 3.998),
             vec![v.as_neighbor()],
         );
         let obj = serialize_model(&model);
         let json = serde_json::to_string(&obj).unwrap();
         assert_eq!(
-            r#"[{"center":[3.0,5.1],"radius":4.7,"weight":0.999},{"center":[1.2,6.0],"radius":1.3,"weight":3.998}]"#,
+            r#"[{"center":[3.0,5.1],"radius":2.16794833886788,"weight":0.999},{"center":[1.2,6.0],"radius":1.140175425099138,"weight":3.998}]"#,
             json
         );
     }

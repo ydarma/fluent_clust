@@ -2,7 +2,7 @@
 
 use std::{marker::PhantomData, ops::DerefMut};
 
-use crate::model::{BallData, BallNode, GetNeighbors, Model};
+use crate::model::{Ball, BallNode, GetNeighbors, Model};
 
 const EXTRA_THRESHOLD: f64 = 25.;
 const INTRA_THRESHOLD: f64 = 16.;
@@ -14,7 +14,7 @@ const MAX_NEIGHBORS: usize = 2;
 /// Fits incoming points to a set of balls model.
 ///
 /// The algorithm can fit any kind of points in a space that:
-///  - defines the distance between two points,
+///  - defines the square of the distance between two points,
 ///  - defines the weighted center of two points.
 ///  ```
 /// use fluent_data::algorithm::Algo;
@@ -34,7 +34,7 @@ const MAX_NEIGHBORS: usize = 2;
 /// let mut balls = model.iter_balls();
 /// let first = balls.next().unwrap();
 /// assert_eq!(&vec![6., -4.], first.center());
-/// assert_eq!(110., first.radius());
+/// assert_eq!(f64::sqrt(110.), first.radius());
 /// assert!(first.weight() < 2.001 && first.weight() > 1.999);
 /// ```
 pub struct Algo<Point: PartialEq + 'static> {
@@ -76,16 +76,18 @@ impl<Point: PartialEq + 'static> Algo<Point> {
 
     /// Initializes the model for the first incoming point.
     /// It creates a first balls with an infinite radius and a zero weight.
-    /// The second point will be merged into this ball and the radius updated to the distance between the two points.
+    /// The second point will be merged into this ball and the radius updated
+    /// to the distance between the two points.
     fn init(&self, model: &mut Model<Point>, point: Point) -> BallNode<Point> {
-        let ball = BallData::new(point, f64::INFINITY, 0.);
+        let ball = Ball::new(point, f64::INFINITY, 0.);
         model.add_ball(ball, vec![])
     }
 
     /// Updates the model for all points after the first.
     /// If the new point is "far" from its neighbors, a new ball is created
     /// otherwise it is merged into the closest one.
-    /// In both case radius is calculated or updated using the distance between the point and its closest ball.
+    /// In both case the radius is calculated or updated using
+    /// the distance between the point and its closest ball.
     fn update(
         &self,
         model: &mut Model<Point>,
@@ -110,7 +112,7 @@ impl<Point: PartialEq + 'static> Algo<Point> {
     /// The radius is updated using the distance between the point and the ball center.
     fn update_ball(
         &self,
-        ball: &mut impl DerefMut<Target = BallData<Point>>,
+        ball: &mut impl DerefMut<Target = Ball<Point>>,
         point: Point,
         dist: f64,
     ) {
@@ -120,12 +122,12 @@ impl<Point: PartialEq + 'static> Algo<Point> {
     }
 
     /// Updates the ball center to the weighted center of point ansd the ball.
-    fn update_mu(&self, ball: &impl DerefMut<Target = BallData<Point>>, point: Point) -> Point {
+    fn update_mu(&self, ball: &impl DerefMut<Target = Ball<Point>>, point: Point) -> Point {
         (self.combine)(&ball.center, ball.weight, &point, 1.)
     }
 
     /// Updates the ball radius using the distance between the point and the ball center.
-    fn update_sigma(&self, ball: &impl DerefMut<Target = BallData<Point>>, dist: f64) -> f64 {
+    fn update_sigma(&self, ball: &impl DerefMut<Target = Ball<Point>>, dist: f64) -> f64 {
         if ball.weight == 0. {
             dist
         } else {
@@ -139,11 +141,11 @@ impl<Point: PartialEq + 'static> Algo<Point> {
         &self,
         point: Point,
         d: f64,
-        neighbor: &impl DerefMut<Target = BallData<Point>>,
-    ) -> BallData<Point> {
+        neighbor: &impl DerefMut<Target = Ball<Point>>,
+    ) -> Ball<Point> {
         let radius = d / EXTRA_THRESHOLD;
         let center = (self.combine)(&neighbor.center, -1., &point, 5.);
-        BallData::new(center, radius, 1.)
+        Ball::new(center, radius, 1.)
     }
 
     /// Updates the neighborhood of a ball with the candidate ball if it is closer than its current neighbors.
