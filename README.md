@@ -86,8 +86,15 @@ See [the customization section of the crate documentation](https://docs.rs/fluen
 
 # How it works
 Given a set of balls fitted from data points received so far, let `P` be the new incoming point.
- Let `B` and `B'` be the two balls that most probably contain `P`. Let `C` be the center of `B`, `r` its radius and `w` its weight. Similarly, `C'`, `r'` and `w'` are the center, radius and weight of `B'`
- - (I) If the distance `d = |PC|` is less than `4r`,
+ Let `B` and `B'` be the two balls that most probably contain `P` (*).
+
+ Let `C` be the center of `B`, `r` its radius and `w` its weight. Similarly, `C'`, `r'` and `w'` are the center, radius and weight of `B'`.
+ Let `d` be the distance from `P` to `C`: `d = |PC|`.
+ 
+ (*) by "most probably includes" we mean that `B` minimizes the quantity `d/r` for all balls in the model.
+ 
+ The fitting algorithm is the following:
+ - (I) If the distance is less than four times `B` radius, `d < 4r`,
    - the new point belongs to `B`, `B` is incrementally updated:
       - the sqaure of the radius is set to the average square radius: `r² <- (w.r² + d²) / (w + 1)`,
       - the center is set to the average center: `C <- (w.C + P) / (w + 1)`,
