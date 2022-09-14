@@ -63,7 +63,7 @@ fn start_server(point_producer: Sender<String>, model_receiver: Receiver<String>
 /// Starts the server that will accept websocket connections and listen for points.
 fn start_websockets(peers: Peers, point_producer: Sender<String>) {
     let port = env::var("PORT").unwrap_or(String::from("9001"));
-    let endpoint = format!("127.0.0.1:{}", port);
+    let endpoint = format!("0.0.0.0:{}", port);
     let server = TcpListener::bind(endpoint).unwrap();
     for stream in server.incoming() {
         let (path, websocket) = get_websocket(stream);
