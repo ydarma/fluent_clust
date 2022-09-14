@@ -1,0 +1,8 @@
+version: '3.8'
+  
+services:
+  fluent_data:
+    build: .
+    ports:
+      - 9001:9001
+    
